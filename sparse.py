@@ -1,12 +1,21 @@
 from __future__ import annotations
-from typing import Iterable, List, Tuple, Literal
+from typing import Iterable, List, Tuple, Literal, Any
 
 import torch
 import torch.nn.functional as F
 from torch_scatter import scatter
 
 
+def prod(values: Iterable[Any]) -> Any:
+    result = 1
+    for value in values:
+        result *= value
+    return result
+
+
 class Sparse:
+    MAX_SIZE = 1 << 63
+
     def __init__(
         self,
         indices: torch.LongTensor,
@@ -20,6 +29,8 @@ class Sparse:
 
         if shape is None:
             shape = tuple((indices.amax(dim=1) + 1).tolist())
+
+        assert prod(shape) <= self.MAX_SIZE
 
         if values is not None and values.ndim == 1:
             values.unsqueeze_(1)
@@ -156,6 +167,23 @@ class Sparse:
         Cartesian product of sparse tensors over a dimension
         """
         pass
+
+    def reshape_(self, shape: Iterable[int]) -> Sparse:
+        shape = list(shape)
+
+        indices, shape = self.__indices_to_shape(shape)
+
+        self.indices = indices
+        self.shape = shape
+
+        return self
+
+    def reshape(self, shape: Iterable[int]) -> Sparse:
+        shape = list(shape)
+
+        indices, shape = self.__indices_to_shape(shape)
+
+        return Sparse(indices, self.values, shape)
 
     def sum(self, dim: int | tuple = None) -> Sparse:
         return self.scatter(dim, "sum")
@@ -377,17 +405,51 @@ class Sparse:
 
         return sparse_cat
 
+    def __global_index(self, without_dim: List[int] = None) -> torch.LongTensor:
+        shape = torch.tensor(self.shape, dtype=torch.long)
+
+        if without_dim is not None:
+            shape[without_dim] = 1
+
+        prod_tensor = F.pad(shape, (1, 0), value=1).cumprod(0)
+
+        if without_dim is not None:
+            prod_tensor[without_dim] = 0
+
+        return (self.indices * prod_tensor.to(self.device)[:-1, None]).sum(dim=0)
+
+    def __indices_to_shape(
+        self, shape: List[int]
+    ) -> Tuple[torch.LongTensor, List[int]]:
+        numel = self.numel()
+
+        num_anon = sum(map(lambda x: x == -1, shape))
+        assert num_anon <= 1
+
+        if num_anon == 1:
+            total = prod(filter(lambda x: x != -1, shape))
+            anon_dim = numel // total
+            shape = list(map(lambda x: anon_dim if x == -1 else x, shape))
+
+        assert prod(shape) == numel
+
+        global_index = self.__global_index()
+
+        shape_tensor = torch.tensor(shape, dtype=torch.long, device=self.device)
+        prod_tensor = F.pad(shape_tensor, (1, 0), value=1).cumprod(0)[:-1]
+
+        indices = (global_index[None, :] // prod_tensor[:, None]) % shape_tensor[
+            :, None
+        ]
+
+        return indices, shape
+
     def __unique_index(
         self, without_dim: List[int]
     ) -> Tuple[torch.LongTensor, torch.LongTensor]:
         keep_dim = sorted(list(set(range(len(self.shape))) - set(without_dim)))
 
-        size = self.indices.amax(dim=1) + 1
-        size[without_dim] = 1
-        prod = F.pad(size, (1, 0), value=1).cumprod(0)
-        prod[without_dim] = 0
-
-        unique_index = (self.indices * prod[:-1, None]).sum(dim=0)
+        unique_index = self.__global_index(without_dim)
 
         unique, batch = torch.unique(unique_index, return_inverse=True)
 
@@ -414,14 +476,17 @@ print(res)
 x = Sparse(
     torch.tensor(
         [
+            [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
             [0, 1, 2, 3, 4, 5, 6, 0, 1, 2, 3],
             [0, 1, 2, 3, 4, 5, 6, 2, 3, 4, 5],
         ]
     ),
-).to("cuda")
+)
 
 print(x)
 print(x.dense.squeeze())
 print(x.sum(0).dense.squeeze())
 print(x.sum(1).dense.squeeze())
 print(x.sum((0, 1)).dense.squeeze())
+
+print(x.reshape_((14, 7)))
