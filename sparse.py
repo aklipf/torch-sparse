@@ -8,17 +8,20 @@ from torch_scatter import scatter
 
 class Sparse:
     def __init__(
-        self, indices: torch.LongTensor, values: torch.Tensor, shape: tuple = None
+        self,
+        indices: torch.LongTensor,
+        values: torch.Tensor = None,
+        shape: tuple = None,
     ):
         assert indices.ndim == 2 and indices.dtype == torch.long
-        assert values.ndim in (1, 2)
-        assert indices.shape[1] == values.shape[0]
+        assert values is None or values.ndim in (1, 2)
+        assert values is None or indices.shape[1] == values.shape[0]
         assert shape is None or indices.shape[0] == len(shape)
 
         if shape is None:
             shape = tuple((indices.amax(dim=1) + 1).tolist())
 
-        if values.ndim == 1:
+        if values is not None and values.ndim == 1:
             values.unsqueeze_(1)
 
         self.shape = tuple(shape)
@@ -27,13 +30,23 @@ class Sparse:
 
     @property
     def dtype(self) -> type:
+        if self.values is None:
+            return torch.float32
+
         return self.values.dtype
 
     @property
     def device(self) -> torch.device:
-        return self.values.device
+        return self.indices.device
 
     def to(self, device: torch.device) -> Sparse:
+        if self.values is None:
+            return Sparse(
+                indices=self.indices.to(device),
+                values=None,
+                shape=self.shape,
+            )
+
         return Sparse(
             indices=self.indices.to(device),
             values=self.values.to(device),
@@ -56,21 +69,63 @@ class Sparse:
 
         return self
 
+    def squeeze_(self, dim: int = None) -> Sparse:
+        assert dim is None or isinstance(dim, int)
+        assert dim is None or dim <= self.indices.shape[0] and self.shape[dim] == 1
+
+        if dim is None:
+            keep_dim = [d for d, n in enumerate(self.shape) if n != 1]
+        else:
+            keep_dim = [d for d, _ in enumerate(self.shape) if d != dim]
+
+        self.indices = self.indices[keep_dim]
+        self.shape = tuple([self.shape[d] for d in keep_dim])
+
+        return self
+
     def unsqueeze(self, dim: int) -> Sparse:
         sparse = self.clone()
         sparse.unsqueeze_(dim)
 
         return sparse
 
+    def squeeze(self, dim: int) -> Sparse:
+        sparse = self.clone()
+        sparse.squeeze_(dim)
+
+        return sparse
+
     def clone(self) -> Sparse:
+        if self.values is None:
+            return Sparse(indices=self.indices.clone(), values=None, shape=self.shape)
+
         return Sparse(
             indices=self.indices.clone(), values=self.values.clone(), shape=self.shape
         )
 
     def detach(self) -> Sparse:
+        if self.values is None:
+            return Sparse(indices=self.indices.detach(), values=None, shape=self.shape)
+
         return Sparse(
             indices=self.indices.detach(), values=self.values.detach(), shape=self.shape
         )
+
+    def mask_(self, mask: torch.BoolTensor) -> Sparse:
+        assert mask.ndim == 1 and mask.shape[0] == self.indices.shape[1]
+
+        self.indices = self.indices[:, mask]
+
+        if self.values is not None:
+            self.values = self.values[mask]
+
+        return self
+
+    def mask(self, mask: torch.BoolTensor) -> Sparse:
+        sparse = self.clone()
+        sparse.mask_(mask)
+
+        return sparse
 
     @classmethod
     def cat(cls, sparse_tensors: Iterable[Sparse], dim: int | tuple = None) -> Sparse:
@@ -83,12 +138,24 @@ class Sparse:
 
         device, out_shape, ptr = cls.__get_device_shape_ptr(sparse_tensors, dim)
 
-        sparse_cat, cat_size = cls.__cat_sparse(sparse_tensors, out_shape, device)
+        if sparse_tensors[0].values is None:
+            sparse_cat, cat_size = cls.__cat_index_sparse(
+                sparse_tensors, out_shape, device
+            )
+        else:
+            sparse_cat, cat_size = cls.__cat_sparse(sparse_tensors, out_shape, device)
 
         if len(dim) > 0:
             cls.__reindex_cat_dim_(sparse_cat, dim, ptr, cat_size, device)
 
         return sparse_cat
+
+    @classmethod
+    def prod(cls, sparse_tensors: Iterable[Sparse], dim: int) -> Sparse:
+        """
+        Cartesian product of sparse tensors over a dimension
+        """
+        pass
 
     def sum(self, dim: int | tuple = None) -> Sparse:
         return self.scatter(dim, "sum")
@@ -97,6 +164,11 @@ class Sparse:
         return self.scatter(dim, "mean")
 
     def __repr__(self) -> str:
+        if self.values is None:
+            return f"""Sparse(shape={self.shape},
+  indices={self.indices},
+  device=\"{self.device}\")"""
+
         return f"""Sparse(shape={self.shape},
   indices={self.indices},
   values={self.values},
@@ -104,15 +176,46 @@ class Sparse:
 
     @property
     def dense(self) -> torch.Tensor:
-        x = torch.zeros(
-            self.shape + self.values.shape[1:],
-            dtype=self.values.dtype,
-            device=self.device,
-        )
+        if self.values is None:
+            shape = self.shape
+        else:
+            shape = self.shape + self.values.shape[1:]
+
+        x = torch.zeros(shape, dtype=self.dtype, device=self.device)
         indices = [self.indices[i] for i in range(self.indices.shape[0])]
-        x[indices] = self.values
+
+        if self.values is None:
+            x[indices] = 1
+        else:
+            x[indices] = self.values
 
         return x
+
+    def numel(self) -> int:
+        total_size = 1
+        for s in self.shape:
+            total_size *= s
+
+        return total_size
+
+    def __scatter_all(self, reduce: Literal["sum", "mean"] = "sum") -> Sparse:
+        indices = torch.tensor([[0]], dtype=torch.long, device=self.device)
+
+        if reduce == "sum":
+            if self.values is None:
+                value = self.indices.shape[1]
+            else:
+                value = self.values.sum().item()
+
+        elif reduce == "mean":
+            if self.values is None:
+                value = self.indices.shape[1] / self.numel()
+            else:
+                value = self.values.mean().item()
+
+        values = torch.tensor([value], dtype=self.dtype, device=self.device)
+
+        return Sparse(indices, values, shape=(1,))
 
     def scatter(
         self, dim: int | tuple = None, reduce: Literal["sum", "mean"] = "sum"
@@ -121,24 +224,54 @@ class Sparse:
         dim = sorted(dim, reverse=True)
 
         if len(dim) == len(self.shape):
-            indices = torch.tensor([[0]], dtype=torch.long, device=self.device)
-
-            if reduce == "sum":
-                values = self.values.sum()
-            elif reduce == "mean":
-                values = self.values.mean()
-
-            return Sparse(indices, values.view(1), shape=(1,))
+            return self.__scatter_all(reduce)
 
         indices, batch = self.__unique_index(dim)
 
-        values = scatter(self.values, batch, dim=0, reduce=reduce)
+        if self.values is None:
+            values = scatter(
+                torch.ones_like(self.indices[0], dtype=self.dtype),
+                batch,
+                dim=0,
+                reduce=reduce,
+            )
+        else:
+            values = scatter(self.values, batch, dim=0, reduce=reduce)
 
         shape = list(
             map(lambda x: self.shape[x], set(range(len(self.shape))) - set(dim))
         )
 
         return Sparse(indices, values, shape)
+
+    def type(self, dtype: type) -> Sparse:
+        if self.values is None:
+            return Sparse(
+                self.indices,
+                torch.ones_like(self.indices[0], dtype=dtype),
+                self.shape,
+            )
+
+        return Sparse(
+            self.indices,
+            self.values.type(dtype),
+            self.shape,
+        )
+
+    def float(self) -> Sparse:
+        return self.type(torch.float32)
+
+    def double(self) -> Sparse:
+        return self.type(torch.float64)
+
+    def int(self) -> Sparse:
+        return self.type(torch.int32)
+
+    def long(self) -> Sparse:
+        return self.type(torch.int64)
+
+    def bool(self) -> Sparse:
+        return self.type(torch.bool)
 
     @classmethod
     def __assert_cat(cls, sparse_tensors: Iterable[Sparse], dim: list):
@@ -189,6 +322,24 @@ class Sparse:
             ptr = None
 
         return device, out_shape, ptr
+
+    @classmethod
+    def __cat_index_sparse(
+        cls,
+        sparse_tensors: Iterable[Sparse],
+        out_shape: torch.LongTensor,
+        device: torch.device,
+    ) -> Tuple[Sparse, torch.LongTensor]:
+        cat_indices, cat_size = [], []
+
+        for st in sparse_tensors:
+            cat_size.append(st.indices.shape[1])
+            cat_indices.append(st.indices)
+
+        cat_size = torch.tensor(cat_size, dtype=torch.long, device=device)
+        cat_indices = torch.cat(cat_indices, dim=1)
+
+        return Sparse(indices=cat_indices, values=None, shape=out_shape), cat_size
 
     @classmethod
     def __cat_sparse(
@@ -248,18 +399,17 @@ class Sparse:
         return indices, batch
 
 
+"""
 A = Sparse(
     torch.tensor([[0, 1, 2, 3], [0, 1, 2, 3]]),
-    torch.tensor([1.0, 1.0, 2.0, 2.0]),
 ).to("cuda")
-B = Sparse(torch.tensor([[0, 1, 2], [0, 1, 2]]), torch.tensor([3.0, 3.0, 4.0])).to(
-    "cuda"
-)
+B = Sparse(torch.tensor([[0, 1, 2], [0, 1, 2]])).to("cuda")
 
-# print(A)
-# print(B)
-# res = Sparse.cat((A.unsqueeze(0), B.unsqueeze(0)), dim=(0, 1))
-# print(res)
+print(A)
+print(B)
+res = Sparse.cat((A.unsqueeze(0), B.unsqueeze(0)), dim=(0, 1))
+print(res)
+"""
 
 x = Sparse(
     torch.tensor(
@@ -268,8 +418,9 @@ x = Sparse(
             [0, 1, 2, 3, 4, 5, 6, 2, 3, 4, 5],
         ]
     ),
-    torch.tensor([1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 1.0, 1.0, 1.0, 1.0]),
 ).to("cuda")
+
+print(x)
 print(x.dense.squeeze())
 print(x.sum(0).dense.squeeze())
 print(x.sum(1).dense.squeeze())
