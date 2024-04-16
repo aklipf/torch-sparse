@@ -8,13 +8,12 @@ from .typing import Self
 
 
 class BaseSparse(object):
-    MAX_SIZE = 1 << 63
-
     def __init__(
         self,
         indices: torch.LongTensor,
         values: torch.Tensor = None,
         shape: tuple = None,
+        sort: bool = True,
     ):
         assert indices.ndim == 2 and indices.dtype == torch.long
         assert values is None or values.ndim in (1, 2)
@@ -24,14 +23,64 @@ class BaseSparse(object):
         if shape is None:
             shape = tuple((indices.amax(dim=1) + 1).tolist())
 
-        assert self._prod(shape) <= self.MAX_SIZE
-
         if values is not None and values.ndim == 1:
             values.unsqueeze_(1)
 
         self.shape = tuple(shape)
         self.indices = indices
         self.values = values
+
+        if sort and (not self.is_sorted()):
+            self.sort_indices_()
+
+    def __included_dims(self, except_dim: int | Iterable = None) -> List[int]:
+        if isinstance(except_dim, int):
+            except_dim = {except_dim}
+        elif except_dim is None:
+            except_dim = set()
+        else:
+            except_dim = set(except_dim)
+
+        return sorted(list(set(self.dims) - except_dim))
+
+    def argsort_indices(self, except_dim: int | Iterable = None) -> torch.LongTensor:
+        dims = self.__included_dims(except_dim)
+
+        perm = None
+
+        for i in reversed(dims):
+
+            if perm is None:
+                current_indices = self.indices[i]
+            else:
+                current_indices = self.indices[i, perm]
+
+            current_perm = torch.argsort(current_indices, stable=True)
+
+            if perm is None:
+                perm = current_perm
+            else:
+                perm = perm[current_perm]
+
+        return perm
+
+    def sort_indices_(self):
+        """Sort indices and values"""
+
+        perm = self.argsort_indices()
+
+        # apply reindexing
+        self.indices = self.indices[:, perm]
+
+        if self.values is not None:
+            self.values = self.values[:, perm]
+
+    def is_sorted(self) -> bool:
+        return (self.indices[:, 1:] <= self.indices[:, :-1]).all()
+
+    @property
+    def dims(self) -> tuple:
+        return tuple(range(len(self.shape)))
 
     @property
     def dtype(self) -> type:
@@ -94,13 +143,6 @@ class BaseSparse(object):
 
         return sparse
 
-    @classmethod
-    def prod(cls, sparse_tensors: Iterable[Self], dim: int) -> Self:
-        """
-        Cartesian product of sparse tensors over a dimension
-        """
-        pass
-
     def __repr__(self) -> str:
         if self.values is None:
             return f"""{self.__class__.__name__}(shape={self.shape},
@@ -157,7 +199,7 @@ class BaseSparse(object):
         return (self.indices * prod_tensor.to(self.device)[:-1, None]).sum(dim=0)
 
     @classmethod
-    def _prod(cls, values: Iterable[Any]) -> Any:
+    def _prod(cls, values: Iterable[int]) -> int:
         result = 1
         for value in values:
             result *= int(value)
