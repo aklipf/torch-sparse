@@ -115,16 +115,17 @@ class BaseSparse(object):
     def _set_shape_(self, shape: tuple):
         self.__shape = shape
 
-    @classmethod
-    def _dim_to_list(cls, dim: int | tuple = None) -> List[int]:
+    def _dim_to_list(self, dim: int | tuple = None) -> List[int]:
         if dim is None:
-            return []
+            return list(self.dims)
 
         elif isinstance(dim, int):
+            assert dim < len(self.shape)
             return [dim]
 
-        lst_dim = list(dim)
+        lst_dim = sorted(list(dim))
 
+        assert lst_dim[-1] < len(self.shape)
         assert len(lst_dim) == len(set(dim)), "multiple dimensions are the same"
 
         return lst_dim
@@ -160,10 +161,10 @@ class BaseSparse(object):
 
         return perm
 
-    def _sort_indices_(self):
+    def _sort_indices_(self, except_dim: int | Iterable = None):
         """Sort indices and values"""
 
-        perm = self._argsort_indices()
+        perm = self._argsort_indices(except_dim)
 
         # apply reindexing
         self.indices = self.indices[:, perm]

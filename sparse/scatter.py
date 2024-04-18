@@ -2,13 +2,13 @@ from typing import Literal, List, Tuple
 
 import torch
 import torch.nn.functional as F
-from torch_scatter import scatter
+from torch_scatter import scatter_add
 
 from .typing import Self
-from .base import BaseSparse
+from .shape import SparseShapeMixin
 
 
-class SparseScatterMixin(BaseSparse):
+class SparseScatterMixin(SparseShapeMixin):
 
     def sum(self, dim: int | tuple = None) -> Self:
         return self.scatter(dim, "sum")
@@ -17,30 +17,44 @@ class SparseScatterMixin(BaseSparse):
         return self.scatter(dim, "mean")
 
     def scatter(
-        self, dim: int | tuple = None, reduce: Literal["sum", "mean"] = "sum"
+        self, dims: int | tuple = None, reduce: Literal["sum", "mean"] = "sum"
     ) -> Self:
-        dim = self._dim_to_list(dim)
-        dim = sorted(dim, reverse=True)
+        dims = self._dim_to_list(dims)
+        dims = sorted(dims, reverse=True)
 
-        if len(dim) == len(self.shape):
+        if len(dims) == len(self.shape):
             return self._scatter_all(reduce)
 
-        indices, batch = self._unique_index(dim)
+        sorted_sparse = self
+        keeped_dims = self._included_dims(dims)
+        if min(dims) < max(keeped_dims):
+            sorted_sparse = self.clone()
+            sorted_sparse._sort_indices_(dims)
+
+        batch = sorted_sparse.index_sorted(dims)
+        indices = torch.empty(
+            (len(keeped_dims), batch[-1] + 1),
+            dtype=torch.long,
+            device=sorted_sparse.device,
+        )
+        indices[:, batch] = sorted_sparse.indices[keeped_dims]
 
         if self.values is None:
-            values = scatter(
-                torch.ones_like(self.indices[0], dtype=self.dtype),
+            values = scatter_add(
+                torch.ones_like(sorted_sparse.indices[0], dtype=torch.float32),
                 batch,
                 dim=0,
-                reduce=reduce,
             )
         else:
-            values = scatter(self.values, batch, dim=0, reduce=reduce)
+            values = scatter_add(sorted_sparse.values, batch, dim=0)
+
+        if reduce == "mean":
+            n = self._prod(map(lambda i: self.shape[i], dims))
+            values = values / n
 
         shape = list(
-            map(lambda x: self.shape[x], set(range(len(self.shape))) - set(dim))
+            map(lambda x: self.shape[x], set(range(len(self.shape))) - set(dims))
         )
-
         return self.__class__(indices, values, shape)
 
     def _scatter_all(self, reduce: Literal["sum", "mean"] = "sum") -> Self:
@@ -56,24 +70,8 @@ class SparseScatterMixin(BaseSparse):
             if self.values is None:
                 value = self.indices.shape[1] / self.numel()
             else:
-                value = self.values.mean().item()
+                value = self.values.sum().item() / self.numel()
 
         values = torch.tensor([value], dtype=self.dtype, device=self.device)
 
         return self.__class__(indices, values, shape=(1,))
-
-    def _unique_index(
-        self, without_dim: List[int]
-    ) -> Tuple[torch.LongTensor, torch.LongTensor]:
-        keep_dim = sorted(list(set(range(len(self.shape))) - set(without_dim)))
-
-        unique_index = self._global_index(without_dim)
-
-        unique, batch = torch.unique(unique_index, return_inverse=True)
-
-        indices = torch.zeros(
-            (len(keep_dim), unique.shape[0]), dtype=torch.long, device=self.device
-        )
-        indices[:, batch] = self.indices[keep_dim]
-
-        return indices, batch

@@ -137,14 +137,27 @@ def test_base_shape():
 
 
 def test_base_dim_to_list():
-    assert BaseSparse._dim_to_list() == []
-    assert BaseSparse._dim_to_list(dim=None) == []
-    assert BaseSparse._dim_to_list(dim=3) == [3]
+    sparse = BaseSparse(
+        MockTensor(shape=(4, 3), dtype=torch.long), shape=(16, 16, 16, 16)
+    )
+    assert sparse._dim_to_list() == [0, 1, 2, 3]
+    assert sparse._dim_to_list(dim=None) == [0, 1, 2, 3]
+    assert sparse._dim_to_list(dim=3) == [3]
 
-    assert BaseSparse._dim_to_list(dim=(1, 2)) == [1, 2]
+    assert sparse._dim_to_list(dim=(1, 2)) == [1, 2]
+    assert sparse._dim_to_list(dim=(2, 1)) == [1, 2]
 
     with pytest.raises(AssertionError):
-        BaseSparse._dim_to_list(dim=(1, 2, 2))
+        sparse._dim_to_list(dim=(1, 2, 2))
+
+    with pytest.raises(AssertionError):
+        sparse._dim_to_list(dim=4)
+
+    with pytest.raises(AssertionError):
+        sparse._dim_to_list(dim=(2, 4))
+
+    with pytest.raises(AssertionError):
+        sparse._dim_to_list(dim=(2, 4, 1))
 
 
 def test_base_included_dims():

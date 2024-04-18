@@ -91,6 +91,16 @@ class SparseShapeMixin(BaseSparse):
 
         return shape
 
+    def _indexing_from_shape(
+        self, shape: List[int]
+    ) -> Tuple[torch.LongTensor, torch.LongTensor]:
+        tensor_shape = torch.tensor(shape, dtype=torch.long, device=self.device)
+        tensor_offset = F.pad(
+            tensor_shape.flip((0,)).cumprod(0)[:-1], (1, 0), value=1
+        ).flip((0,))
+
+        return tensor_offset, tensor_shape
+
     def _indices_to_shape(
         self, shape: int | Iterable[int]
     ) -> Tuple[torch.LongTensor, List[int]]:
@@ -100,15 +110,9 @@ class SparseShapeMixin(BaseSparse):
             )
 
         shape = self._inferre_shape(shape)
-        in_shape = torch.tensor(self.shape, dtype=torch.long, device=self.device)
-        out_shape = torch.tensor(shape, dtype=torch.long, device=self.device)
 
-        in_bases = F.pad(in_shape.flip((0,)).cumprod(0)[:-1], (1, 0), value=1).flip(
-            (0,)
-        )
-        out_bases = F.pad(out_shape.flip((0,)).cumprod(0)[:-1], (1, 0), value=1).flip(
-            (0,)
-        )
+        in_bases, _ = self._indexing_from_shape(self.shape)
+        out_bases, out_shape = self._indexing_from_shape(shape)
 
         global_index = (self.indices * in_bases[:, None]).sum(dim=0)
         indices = (global_index[None, :] // out_bases[:, None]) % out_shape[:, None]
