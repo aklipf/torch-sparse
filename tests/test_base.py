@@ -7,6 +7,7 @@ from sparse.base import BaseSparse
 
 from .mock_tensor import MockTensor
 
+
 def test_base_sort():
     indices = torch.tensor(
         [
@@ -135,10 +136,100 @@ def test_base_shape():
     indices.amax.assert_called_once_with(dim=1)
 
 
+def test_base_dim_to_list():
+    assert BaseSparse._dim_to_list() == []
+    assert BaseSparse._dim_to_list(dim=None) == []
+    assert BaseSparse._dim_to_list(dim=3) == [3]
+
+    assert BaseSparse._dim_to_list(dim=(1, 2)) == [1, 2]
+
+    with pytest.raises(AssertionError):
+        BaseSparse._dim_to_list(dim=(1, 2, 2))
+
+
+def test_base_included_dims():
+    mocked_sparce = BaseSparse(
+        indices=MockTensor(shape=(4, 3), dtype=torch.long),
+        values=MockTensor(shape=(3, 1)),
+    )
+
+    assert mocked_sparce._included_dims() == [0, 1, 2, 3]
+    assert mocked_sparce._included_dims(except_dim=1) == [0, 2, 3]
+    assert mocked_sparce._included_dims(except_dim=(1, 2)) == [0, 3]
+    assert mocked_sparce._included_dims(except_dim=(1, 2, 1, 2)) == [0, 3]
+    assert mocked_sparce._included_dims(except_dim=(2, 3, 1)) == [0]
+
+
+def test_base_argsort_indices():
+    indices = torch.randint(0, 1024, (3, 1024))
+    sparse = BaseSparse(indices, sort=False)
+
+    perm = sparse._argsort_indices()
+    sorted = (
+        (sparse.indices[0, perm] << 20)
+        + (sparse.indices[1, perm] << 10)
+        + sparse.indices[2, perm]
+    )
+    assert (sorted.diff() >= 0).all()
+
+    perm = sparse._argsort_indices(1)
+    sorted = (sparse.indices[0, perm] << 10) + sparse.indices[2, perm]
+    assert (sorted.diff() >= 0).all()
+
+    perm = sparse._argsort_indices((0, 1))
+    sorted = sparse.indices[2, perm]
+    assert (sorted.diff() >= 0).all()
+
+    perm = sparse._argsort_indices((1, 2))
+    sorted = sparse.indices[0, perm]
+    assert (sorted.diff() >= 0).all()
+
+
+def test_base_sort_indices():
+    indices = torch.randint(0, 1024, (3, 1024))
+    sparse = BaseSparse(indices.clone(), sort=False)
+
+    sparse._sort_indices_()
+    sorted = (sparse.indices[0] << 20) + (sparse.indices[1] << 10) + sparse.indices[2]
+    assert (sorted.diff() >= 0).all()
+
+    indices = torch.randperm(1024).unsqueeze(0)
+    values = torch.randn(1024)
+    sparse = BaseSparse(indices.clone(), values.clone(), sort=False)
+
+    sparse._sort_indices_()
+    assert (values == sparse.values[indices[0]].flatten()).all()
+
+
+def test_base_is_sorted():
+    sorted = torch.randint(0, 1 << 30, (64,)).sort().values
+    indices = torch.stack((sorted >> 20, (sorted >> 10) & 0x3FF, sorted & 0x3FF))
+
+    sparse = BaseSparse(indices.clone(), sort=False)
+    assert sparse._is_sorted()
+
+    indices = torch.randint(0, 1024, (3, 1024))
+
+    sparse = BaseSparse(indices.clone(), sort=False)
+    assert not sparse._is_sorted()
+
+
+def test_base_prod():
+    assert BaseSparse._prod([]) == 1
+    assert BaseSparse._prod([1]) == 1
+    assert BaseSparse._prod([2]) == 2
+    assert BaseSparse._prod([2, 3]) == 6
+    assert BaseSparse._prod([2, 3, 4]) == 24
+
+
 def test_base_dims():
     assert BaseSparse(MockTensor(shape=(1, 3), dtype=torch.long)).dims == (0,)
     assert BaseSparse(MockTensor(shape=(2, 3), dtype=torch.long)).dims == (0, 1)
-    assert BaseSparse(MockTensor(shape=(3, 3), dtype=torch.long)).dims == (0, 1, 2)
+    assert BaseSparse(MockTensor(shape=(3, 3), dtype=torch.long)).dims == (
+        0,
+        1,
+        2,
+    )
 
 
 def test_base_dtype():
@@ -272,20 +363,21 @@ def test_base_repr():
     )
 
 
-def test_base_dense():
+def test_base_to_dense():
     indices = torch.tensor([[0, 1, 2, 2], [0, 1, 0, 2]])
 
     assert (
-        BaseSparse(indices).dense == torch.tensor([[1, 0, 0], [0, 1, 0], [1, 0, 1]])
+        BaseSparse(indices).to_dense()
+        == torch.tensor([[1, 0, 0], [0, 1, 0], [1, 0, 1]])
     ).all()
 
     assert (
-        BaseSparse(indices, torch.tensor([1, 2, 3, 4])).dense
+        BaseSparse(indices, torch.tensor([1, 2, 3, 4])).to_dense()
         == torch.tensor([[1, 0, 0], [0, 2, 0], [3, 0, 4]])
     ).all()
 
     assert (
-        BaseSparse(indices, torch.tensor([[1, 5], [2, 6], [3, 7], [4, 8]])).dense
+        BaseSparse(indices, torch.tensor([[1, 5], [2, 6], [3, 7], [4, 8]])).to_dense()
         == torch.tensor(
             [
                 [[1, 5], [0, 0], [0, 0]],
@@ -294,89 +386,3 @@ def test_base_dense():
             ]
         )
     ).all()
-
-
-def test_base_dim_to_list():
-    assert BaseSparse._dim_to_list() == []
-    assert BaseSparse._dim_to_list(dim=None) == []
-    assert BaseSparse._dim_to_list(dim=3) == [3]
-
-    assert BaseSparse._dim_to_list(dim=(1, 2)) == [1, 2]
-
-    with pytest.raises(AssertionError):
-        BaseSparse._dim_to_list(dim=(1, 2, 2))
-
-
-def test_base_included_dims():
-    mocked_sparce = BaseSparse(
-        indices=MockTensor(shape=(4, 3), dtype=torch.long),
-        values=MockTensor(shape=(3, 1)),
-    )
-
-    assert mocked_sparce._included_dims() == [0, 1, 2, 3]
-    assert mocked_sparce._included_dims(except_dim=1) == [0, 2, 3]
-    assert mocked_sparce._included_dims(except_dim=(1, 2)) == [0, 3]
-    assert mocked_sparce._included_dims(except_dim=(1, 2, 1, 2)) == [0, 3]
-    assert mocked_sparce._included_dims(except_dim=(2, 3, 1)) == [0]
-
-
-def test_base_argsort_indices():
-    indices = torch.randint(0, 1024, (3, 1024))
-    sparse = BaseSparse(indices, sort=False)
-
-    perm = sparse._argsort_indices()
-    sorted = (
-        (sparse.indices[0, perm] << 20)
-        + (sparse.indices[1, perm] << 10)
-        + sparse.indices[2, perm]
-    )
-    assert (sorted.diff() >= 0).all()
-
-    perm = sparse._argsort_indices(1)
-    sorted = (sparse.indices[0, perm] << 10) + sparse.indices[2, perm]
-    assert (sorted.diff() >= 0).all()
-
-    perm = sparse._argsort_indices((0, 1))
-    sorted = sparse.indices[2, perm]
-    assert (sorted.diff() >= 0).all()
-
-    perm = sparse._argsort_indices((1, 2))
-    sorted = sparse.indices[0, perm]
-    assert (sorted.diff() >= 0).all()
-
-
-def test_base_sort_indices():
-    indices = torch.randint(0, 1024, (3, 1024))
-    sparse = BaseSparse(indices.clone(), sort=False)
-
-    sparse._sort_indices_()
-    sorted = (sparse.indices[0] << 20) + (sparse.indices[1] << 10) + sparse.indices[2]
-    assert (sorted.diff() >= 0).all()
-
-    indices = torch.randperm(1024).unsqueeze(0)
-    values = torch.randn(1024)
-    sparse = BaseSparse(indices.clone(), values.clone(), sort=False)
-
-    sparse._sort_indices_()
-    assert (values == sparse.values[indices[0]].flatten()).all()
-
-
-def test_base_is_sorted():
-    sorted = torch.randint(0, 1 << 30, (64,)).sort().values
-    indices = torch.stack((sorted >> 20, (sorted >> 10) & 0x3FF, sorted & 0x3FF))
-
-    sparse = BaseSparse(indices.clone(), sort=False)
-    assert sparse._is_sorted()
-
-    indices = torch.randint(0, 1024, (3, 1024))
-
-    sparse = BaseSparse(indices.clone(), sort=False)
-    assert not sparse._is_sorted()
-
-
-def test_base_prod():
-    assert BaseSparse._prod([]) == 1
-    assert BaseSparse._prod([1]) == 1
-    assert BaseSparse._prod([2]) == 2
-    assert BaseSparse._prod([2, 3]) == 6
-    assert BaseSparse._prod([2, 3, 4]) == 24

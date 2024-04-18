@@ -4,7 +4,7 @@ from .type import SparseTypeMixin
 from .scatter import SparseScatterMixin
 from .cat import SparseCatMixin
 from .prod import SparseProdMixin
-from .indexing import SparseIndexingMixin
+from .mask import SparseMaskMixin
 
 
 class SparseTensor(
@@ -12,8 +12,8 @@ class SparseTensor(
     SparseCatMixin,
     SparseShapeMixin,
     SparseScatterMixin,
+    SparseMaskMixin,
     SparseTypeMixin,
-    SparseIndexingMixin,
     BaseSparse,
 ):
     pass

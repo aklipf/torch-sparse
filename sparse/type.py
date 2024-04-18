@@ -8,14 +8,12 @@ class SparseTypeMixin(BaseSparse):
 
     def type(self, dtype: type) -> Self:
         if self.values is None:
-            return self.__class__(
-                self.indices,
-                torch.ones_like(self.indices[0], dtype=dtype),
-                self.shape,
+            raise ValueError(
+                "Cannot convert the type of a sparse tensor without stored values."
             )
 
         return self.__class__(
-            self.indices,
+            self.indices.clone(),
             self.values.type(dtype),
             self.shape,
         )

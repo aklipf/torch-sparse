@@ -1,6 +1,7 @@
 from typing import Iterable, List
 
 import torch
+import torch.nn.functional as F
 
 from .typing import Self
 
@@ -38,8 +39,12 @@ class BaseSparse(object):
         return self.__shape
 
     @property
-    def dims(self) -> tuple:
-        return tuple(range(len(self.__shape)))
+    def ndim(self) -> int:
+        return len(self.shape)
+
+    @property
+    def dim(self) -> int:
+        return len(self.shape)
 
     @property
     def dtype(self) -> type:
@@ -56,35 +61,34 @@ class BaseSparse(object):
         return self.__class__(
             indices=self.indices.to(device),
             values=None if self.values is None else self.values.to(device),
-            shape=self.__shape,
+            shape=self.shape,
         )
 
     def clone(self) -> Self:
         return self.__class__(
             indices=self.indices.clone(),
             values=None if self.values is None else self.values.clone(),
-            shape=self.__shape,
+            shape=self.shape,
         )
 
     def detach(self) -> Self:
         return self.__class__(
             indices=self.indices.detach(),
             values=None if self.values is None else self.values.detach(),
-            shape=self.__shape,
+            shape=self.shape,
         )
 
     def __repr__(self) -> str:
-        return f"""{self.__class__.__name__}(shape={self.__shape},
+        return f"""{self.__class__.__name__}(shape={self.shape},
   indices={self.indices},
   values={self.values},
   device=\"{self.device}\")"""
 
-    @property
-    def dense(self) -> torch.Tensor:
+    def to_dense(self) -> torch.Tensor:
         if self.values is None or self.values.shape[1] == 1:
-            shape = self.__shape
+            shape = self.shape
         else:
-            shape = self.__shape + self.values.shape[1:]
+            shape = self.shape + self.values.shape[1:]
 
         x = torch.zeros(shape, dtype=self.dtype, device=self.device)
         indices = [self.indices[i] for i in range(self.indices.shape[0])]
@@ -97,6 +101,16 @@ class BaseSparse(object):
             x[indices] = self.values
 
         return x
+
+    @property
+    def dims(self) -> tuple:
+        return tuple(range(len(self.__shape)))
+
+    def index_sorted(self, except_dim: int | Iterable = None) -> torch.LongTensor:
+        dims = self._included_dims(except_dim)
+
+        diff = (self.indices[dims, 1:] != self.indices[dims, :-1]).any(dim=0)
+        return F.pad(diff.cumsum(0), (1, 0), value=0)
 
     @classmethod
     def _dim_to_list(cls, dim: int | tuple = None) -> List[int]:
