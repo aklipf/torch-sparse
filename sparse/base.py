@@ -112,6 +112,9 @@ class BaseSparse(object):
         diff = (self.indices[dims, 1:] != self.indices[dims, :-1]).any(dim=0)
         return F.pad(diff.cumsum(0), (1, 0), value=0)
 
+    def _set_shape_(self, shape: tuple):
+        self.__shape = shape
+
     @classmethod
     def _dim_to_list(cls, dim: int | tuple = None) -> List[int]:
         if dim is None:
@@ -176,11 +179,11 @@ class BaseSparse(object):
         dims = dims.repeat(1, sorted_mask.shape[1])
 
         min_sorted = dims.clone()
-        min_sorted[sorted_mask] = len(self.shape)
+        min_sorted[sorted_mask] = len(self.__shape)
         min_sorted = min_sorted.amin(dim=0)
 
         min_unsorted = dims.clone()
-        min_unsorted[unsorted_mask] = len(self.shape)
+        min_unsorted[unsorted_mask] = len(self.__shape)
         min_unsorted = min_unsorted.amin(dim=0)
 
         return (min_sorted < min_unsorted).all()

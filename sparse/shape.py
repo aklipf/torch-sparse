@@ -52,22 +52,19 @@ class SparseShapeMixin(BaseSparse):
 
         return sparse
 
-    def reshape_(self, shape: Iterable[int]) -> Self:
-        shape = list(shape)
-
+    def reshape_(self, shape: int | Iterable[int]) -> Self:
         indices, shape = self._indices_to_shape(shape)
 
         self.indices = indices
-        self.shape = shape
+        self._set_shape_(shape)
 
         return self
 
-    def reshape(self, shape: Iterable[int]) -> Self:
-        shape = list(shape)
+    def reshape(self, shape: int | Iterable[int]) -> Self:
+        cloned = self.clone()
+        cloned.reshape_(shape)
 
-        indices, shape = self._indices_to_shape(shape)
-
-        return self.__class__(indices, self.values, shape)
+        return cloned
 
     def numel(self) -> int:
         return self._prod(self.shape)
@@ -94,7 +91,9 @@ class SparseShapeMixin(BaseSparse):
 
         return shape
 
-    def _indices_to_shape(self, shape: List[int]) -> Tuple[torch.LongTensor, List[int]]:
+    def _indices_to_shape(
+        self, shape: int | Iterable[int]
+    ) -> Tuple[torch.LongTensor, List[int]]:
         if math.log2(self.numel()) > 63.0:
             raise IndexError(
                 "Cannot calculate a global index of more than 63 bits (Sparse tensor with numel()>2^63)"
@@ -104,28 +103,14 @@ class SparseShapeMixin(BaseSparse):
         in_shape = torch.tensor(self.shape, dtype=torch.long, device=self.device)
         out_shape = torch.tensor(shape, dtype=torch.long, device=self.device)
 
-        in_bases = F.pad(in_shape.cumprod(0), (1, 0), value=1)[:-1].flip((0,))
-        out_bases = F.pad(out_shape.cumprod(0), (1, 0), value=1)[:-1].flip((0,))
+        in_bases = F.pad(in_shape.flip((0,)).cumprod(0)[:-1], (1, 0), value=1).flip(
+            (0,)
+        )
+        out_bases = F.pad(out_shape.flip((0,)).cumprod(0)[:-1], (1, 0), value=1).flip(
+            (0,)
+        )
 
         global_index = (self.indices * in_bases[:, None]).sum(dim=0)
         indices = (global_index[None, :] // out_bases[:, None]) % out_shape[:, None]
 
         return indices, shape
-
-
-if __name__ == "__main__":
-    indices_initial = torch.randint(0, 1024, (6, 16))
-    sparse = SparseShapeMixin(
-        indices_initial, shape=(1024, 1024, 1024, 1024, 1024, 1024), sort=True
-    )
-    indices_initial = sparse.indices
-    sparse = SparseShapeMixin(
-        indices_initial, shape=(1024, 1024, 1024, 1024, 1024, 1024)
-    )
-
-    indices, shape = sparse._indices_to_shape((1 << 30, 1 << 30))
-    sparse = SparseShapeMixin(indices, shape=shape)
-    indices, shape = sparse._indices_to_shape((1024, 1024, 1024, 1024, 1024, 1024))
-    print(indices_initial)
-    print(indices)
-    print(indices == indices_initial, shape)
