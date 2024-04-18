@@ -1,4 +1,5 @@
 from typing import Iterable, List, Tuple
+import math
 
 import torch
 import torch.nn.functional as F
@@ -21,7 +22,7 @@ class SparseShapeMixin(BaseSparse):
         )
         new_shape = list(self.shape)
         new_shape.insert(dim, 1)
-        self.shape = tuple(new_shape)
+        self.__shape = tuple(new_shape)
 
         return self
 
@@ -35,7 +36,7 @@ class SparseShapeMixin(BaseSparse):
             keep_dim = [d for d, _ in enumerate(self.shape) if d != dim]
 
         self.indices = self.indices[keep_dim]
-        self.shape = tuple([self.shape[d] for d in keep_dim])
+        self.__shape = tuple([self.shape[d] for d in keep_dim])
 
         return self
 
@@ -69,32 +70,62 @@ class SparseShapeMixin(BaseSparse):
         return self.__class__(indices, self.values, shape)
 
     def numel(self) -> int:
-        total_size = 1
-        for s in self.shape:
-            total_size *= s
+        return self._prod(self.shape)
 
-        return total_size
+    def _inferre_shape(self, shape: int | Iterable[int]) -> List[int]:
+        if isinstance(shape, int):
+            shape = [shape]
+        else:
+            shape = list(shape)
+
+        num_inferred = sum(map(lambda x: x == -1, shape))
+
+        if num_inferred > 1:
+            raise ValueError("Shape cannot be inferred from more than one dimension")
+
+        elif num_inferred == 1:
+            numel = self.numel()
+            total_known = self._prod(filter(lambda x: x != -1, shape))
+
+            inferred_shape = numel // total_known
+            assert total_known * inferred_shape == numel
+
+            shape[shape.index(-1)] = inferred_shape
+
+        return shape
 
     def _indices_to_shape(self, shape: List[int]) -> Tuple[torch.LongTensor, List[int]]:
-        numel = self.numel()
+        if math.log2(self.numel()) > 63.0:
+            raise IndexError(
+                "Cannot calculate a global index of more than 63 bits (Sparse tensor with numel()>2^63)"
+            )
 
-        num_anon = sum(map(lambda x: x == -1, shape))
-        assert num_anon <= 1
+        shape = self._inferre_shape(shape)
+        in_shape = torch.tensor(self.shape, dtype=torch.long, device=self.device)
+        out_shape = torch.tensor(shape, dtype=torch.long, device=self.device)
 
-        if num_anon == 1:
-            total = self._prod(filter(lambda x: x != -1, shape))
-            anon_dim = numel // total
-            shape = list(map(lambda x: anon_dim if x == -1 else x, shape))
+        in_bases = F.pad(in_shape.cumprod(0), (1, 0), value=1)[:-1].flip((0,))
+        out_bases = F.pad(out_shape.cumprod(0), (1, 0), value=1)[:-1].flip((0,))
 
-        assert self._prod(shape) == numel
-
-        global_index = self._global_index()
-
-        shape_tensor = torch.tensor(shape, dtype=torch.long, device=self.device)
-        prod_tensor = F.pad(shape_tensor, (1, 0), value=1).cumprod(0)[:-1]
-
-        indices = (global_index[None, :] // prod_tensor[:, None]) % shape_tensor[
-            :, None
-        ]
+        global_index = (self.indices * in_bases[:, None]).sum(dim=0)
+        indices = (global_index[None, :] // out_bases[:, None]) % out_shape[:, None]
 
         return indices, shape
+
+
+if __name__ == "__main__":
+    indices_initial = torch.randint(0, 1024, (6, 16))
+    sparse = SparseShapeMixin(
+        indices_initial, shape=(1024, 1024, 1024, 1024, 1024, 1024), sort=True
+    )
+    indices_initial = sparse.indices
+    sparse = SparseShapeMixin(
+        indices_initial, shape=(1024, 1024, 1024, 1024, 1024, 1024)
+    )
+
+    indices, shape = sparse._indices_to_shape((1 << 30, 1 << 30))
+    sparse = SparseShapeMixin(indices, shape=shape)
+    indices, shape = sparse._indices_to_shape((1024, 1024, 1024, 1024, 1024, 1024))
+    print(indices_initial)
+    print(indices)
+    print(indices == indices_initial, shape)

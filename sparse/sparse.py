@@ -10,8 +10,8 @@ from .mask import SparseMaskMixin
 class SparseTensor(
     SparseProdMixin,
     SparseCatMixin,
-    SparseShapeMixin,
     SparseScatterMixin,
+    SparseShapeMixin,
     SparseMaskMixin,
     SparseTypeMixin,
     BaseSparse,
