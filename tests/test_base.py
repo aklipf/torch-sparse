@@ -194,7 +194,7 @@ def test_base_sort_indices():
     indices = torch.randint(0, 1024, (3, 1024))
     sparse = BaseSparse(indices.clone(), sort=False)
 
-    sparse._sort_indices_()
+    sparse._sort_by_indices_()
     sorted = (sparse.indices[0] << 20) + (sparse.indices[1] << 10) + sparse.indices[2]
     assert (sorted.diff() >= 0).all()
 
@@ -202,7 +202,7 @@ def test_base_sort_indices():
     values = torch.randn(1024)
     sparse = BaseSparse(indices.clone(), values.clone(), sort=False)
 
-    sparse._sort_indices_()
+    sparse._sort_by_indices_()
     assert (values == sparse.values[indices[0]].flatten()).all()
 
 

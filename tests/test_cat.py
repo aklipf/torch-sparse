@@ -154,7 +154,9 @@ def test_cat_assert_cat():
             SparseCatMixin(MockTensor((3, 16), dtype=torch.long)) for _ in range(4)
         ]
         sparse_list.append(
-            SparseCatMixin(MockTensor((3, 16), dtype=torch.long, device="cuda"))
+            SparseCatMixin(
+                MockTensor((3, 16), dtype=torch.long, device="cuda"), sort=False
+            )
         )
         SparseCatMixin._assert_cat(sparse_list, [1])
 
@@ -242,13 +244,19 @@ def test_cat_get_device_shape_ptr():
 
     sparse_list = [
         SparseCatMixin(
-            MockTensor((3, 16), dtype=torch.long, device="cuda"), shape=(3, 5, 4)
+            MockTensor((3, 16), dtype=torch.long, device="cuda"),
+            shape=(3, 5, 4),
+            sort=False,
         ),
         SparseCatMixin(
-            MockTensor((3, 21), dtype=torch.long, device="cuda"), shape=(3, 6, 6)
+            MockTensor((3, 21), dtype=torch.long, device="cuda"),
+            shape=(3, 6, 6),
+            sort=False,
         ),
         SparseCatMixin(
-            MockTensor((3, 8), dtype=torch.long, device="cuda"), shape=(3, 3, 4)
+            MockTensor((3, 8), dtype=torch.long, device="cuda"),
+            shape=(3, 3, 4),
+            sort=False,
         ),
     ]
     device, out_shape, ptr = SparseCatMixin._get_device_shape_ptr(sparse_list, [])
