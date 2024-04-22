@@ -196,7 +196,6 @@ def test_shape_inferre_shape():
 
 def test_shape_indices_to_shape():
     # sort indices
-    indices_initial = torch.randint(0, 1024, (6, 16))
     sparse = SparseShapeMixin(
         torch.tensor([[105, 273, 364, 956], [789, 64, 334, 105], [56, 586, 641, 3]]),
         shape=(1024, 1024, 1024),

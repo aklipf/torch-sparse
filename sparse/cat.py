@@ -16,7 +16,7 @@ class SparseCatMixin(BaseSparse):
         """
         assert len(sparse_tensors) > 0
 
-        dim = sparse_tensors[0]._dim_to_list(dim)
+        dim = next(iter(sparse_tensors))._dim_to_list(dim)
 
         cls._assert_cat(sparse_tensors, dim)
 
@@ -39,8 +39,9 @@ class SparseCatMixin(BaseSparse):
                 tensor, cls
             ), "All inputs must be sparse tensors to be concatenated"
 
-        device = sparse_tensors[0].device
-        out_ndim = len(sparse_tensors[0].shape)
+        first_elem = next(iter(sparse_tensors))
+        device = first_elem.device
+        out_ndim = len(first_elem.shape)
         for tensor in sparse_tensors[1:]:
             assert (
                 tensor.device == device
@@ -59,7 +60,7 @@ class SparseCatMixin(BaseSparse):
         cls, sparse_tensors: Iterable[Self], dim: List[int]
     ) -> Tuple[torch.device, tuple, torch.LongTensor]:
 
-        device = sparse_tensors[0].device
+        device = next(iter(sparse_tensors)).device
 
         shapes = torch.tensor([st.shape for st in sparse_tensors])
         out_shape = shapes.amax(dim=0)
@@ -81,7 +82,7 @@ class SparseCatMixin(BaseSparse):
         out_shape: tuple,
         device: torch.device,
     ) -> Tuple[Self, torch.LongTensor]:
-        has_values = sparse_tensors[0].values is not None
+        has_values = next(iter(sparse_tensors)).values is not None
         cat_indices, cat_size = [], []
 
         if has_values:

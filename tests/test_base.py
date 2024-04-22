@@ -178,16 +178,16 @@ def test_base_argsort_indices():
     sparse = BaseSparse(indices, sort=False)
 
     perm = BaseSparse._argsort_indices(sparse.indices, [0, 2])
-    sorted = (sparse.indices[0, perm] << 10) + sparse.indices[2, perm]
-    assert (sorted.diff() >= 0).all()
+    sorted_indices = (sparse.indices[0, perm] << 10) + sparse.indices[2, perm]
+    assert (sorted_indices.diff() >= 0).all()
 
     perm = BaseSparse._argsort_indices(sparse.indices, [2])
-    sorted = sparse.indices[2, perm]
-    assert (sorted.diff() >= 0).all()
+    sorted_indices = sparse.indices[2, perm]
+    assert (sorted_indices.diff() >= 0).all()
 
     perm = BaseSparse._argsort_indices(sparse.indices, [0])
-    sorted = sparse.indices[0, perm]
-    assert (sorted.diff() >= 0).all()
+    sorted_indices = sparse.indices[0, perm]
+    assert (sorted_indices.diff() >= 0).all()
 
 
 def test_base_sort_indices():
@@ -195,8 +195,10 @@ def test_base_sort_indices():
     sparse = BaseSparse(indices.clone(), sort=False)
 
     sparse._sort_by_indices_()
-    sorted = (sparse.indices[0] << 20) + (sparse.indices[1] << 10) + sparse.indices[2]
-    assert (sorted.diff() >= 0).all()
+    sorted_indices = (
+        (sparse.indices[0] << 20) + (sparse.indices[1] << 10) + sparse.indices[2]
+    )
+    assert (sorted_indices.diff() >= 0).all()
 
     indices = torch.randperm(1024).unsqueeze(0)
     values = torch.randn(1024)
@@ -207,8 +209,10 @@ def test_base_sort_indices():
 
 
 def test_base_is_sorted():
-    sorted = torch.randint(0, 1 << 30, (64,)).sort().values
-    indices = torch.stack((sorted >> 20, (sorted >> 10) & 0x3FF, sorted & 0x3FF))
+    sorted_indices = torch.randint(0, 1 << 30, (64,)).sort().values
+    indices = torch.stack(
+        (sorted_indices >> 20, (sorted_indices >> 10) & 0x3FF, sorted_indices & 0x3FF)
+    )
 
     sparse = BaseSparse(indices.clone(), sort=False)
     assert sparse._is_sorted()
