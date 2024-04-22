@@ -6,6 +6,7 @@ from sparse.typing import Self
 from sparse.scatter import SparseScatterMixin
 
 from .mock_tensor import MockTensor
+from .random_sparse import randint_sparse
 
 
 def assert_scatter_sum(
@@ -46,10 +47,7 @@ def assert_scatter_mean(
 
 def test_scatter_scatter():
     torch.manual_seed(0)
-    random = torch.rand((32, 32, 32, 32))
-    mask = random < 0.1
-    indices = mask.int().nonzero().t()
-    values = torch.randint(0, 16, (indices.shape[1],)).float()
+    indices, values = randint_sparse((32, 32, 32, 32))
 
     assert_scatter_sum(indices, values, (0,))
     assert_scatter_sum(indices, values, (0, 1))
