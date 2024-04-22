@@ -1,8 +1,8 @@
+from unittest import mock
+
 import pytest
 import torch
-import unittest.mock as mock
 
-from sparse.typing import Self
 from sparse.shape import SparseShapeMixin
 
 from .mock_tensor import MockTensor

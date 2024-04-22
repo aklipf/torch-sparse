@@ -1,6 +1,7 @@
+from unittest import mock
+
 import pytest
 import torch
-import unittest.mock as mock
 
 from sparse.typing import Self
 from sparse.scatter import SparseScatterMixin

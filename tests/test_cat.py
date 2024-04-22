@@ -1,8 +1,6 @@
 import pytest
 import torch
-import unittest.mock as mock
 
-from sparse.typing import Self
 from sparse.cat import SparseCatMixin
 
 from .mock_tensor import MockTensor
