@@ -14,7 +14,9 @@ class SparseCatMixin(BaseSparse):
         """
         Concatenate sparse tensors
         """
-        dim = cls._dim_to_list(dim)
+        assert len(sparse_tensors) > 0
+
+        dim = sparse_tensors[0]._dim_to_list(dim)
 
         cls._assert_cat(sparse_tensors, dim)
 
@@ -28,25 +30,23 @@ class SparseCatMixin(BaseSparse):
             sparse_cat, cat_size = cls._cat_sparse(sparse_tensors, out_shape, device)
 
         if len(dim) > 0:
-            cls._reindex_cat_dim_(sparse_cat, dim, ptr, cat_size, device)
+            sparse_cat._reindex_cat_dim_(dim, ptr, cat_size, device)
 
         return sparse_cat
 
     @classmethod
-    def _assert_cat(cls, sparse_tensors: Iterable[Self], dim: list):
-
+    def _assert_cat(cls, sparse_tensors: Iterable[Self], dim: List[int]):
         for tensor in sparse_tensors:
             assert isinstance(tensor, cls)
 
         device = sparse_tensors[0].device
         out_ndim = len(sparse_tensors[0].shape)
-        for cat_dim in dim:
-            assert cat_dim < out_ndim
-
-        for tensor in sparse_tensors:
-            assert isinstance(tensor, cls)
+        for tensor in sparse_tensors[1:]:
             assert tensor.device == device
             assert len(tensor.shape) == out_ndim
+
+        for cat_dim in dim:
+            assert cat_dim < out_ndim
 
     @classmethod
     def _get_device_shape_ptr(
@@ -108,22 +108,19 @@ class SparseCatMixin(BaseSparse):
         cat_values = torch.cat(cat_values, dim=0)
 
         return (
-            cls.__class__(indices=cat_indices, values=cat_values, shape=out_shape),
+            cls(indices=cat_indices, values=cat_values, shape=out_shape),
             cat_size,
         )
 
-    @classmethod
     def _reindex_cat_dim_(
-        cls,
-        sparse_cat: Self,
+        self,
         dim: List[int],
         ptr: torch.LongTensor,
         cat_size: torch.LongTensor,
         device: torch.device,
     ) -> Self:
-
         idx = torch.arange(cat_size.shape[0], dtype=torch.long, device=device)
         batch = idx.repeat_interleave(cat_size)
-        sparse_cat.indices[dim] += ptr[batch].t()
+        self.indices[dim] += ptr[batch].t()
 
-        return sparse_cat
+        return self
