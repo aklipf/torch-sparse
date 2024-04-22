@@ -32,7 +32,7 @@ class BaseSparse:
         self.values = values
 
         if sort and (not self._is_sorted()):
-            self._sort_indices_()
+            self._sort_by_indices_()
 
     @property
     def shape(self) -> tuple:
@@ -163,7 +163,7 @@ class BaseSparse:
 
         return perm
 
-    def _sort_indices_(self, except_dim: int | Iterable = None):
+    def _sort_by_indices_(self, except_dim: int | Iterable = None):
         """Sort indices and values"""
         dims = self._included_dims(except_dim)
         perm = self._argsort_indices(self.indices, dims)

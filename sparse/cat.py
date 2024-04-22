@@ -28,7 +28,7 @@ class SparseCatMixin(BaseSparse):
             sparse_cat._reindex_cat_dim_(dim, ptr, cat_size)
 
         if not sparse_cat._is_sorted():
-            sparse_cat._sort_indices_()
+            sparse_cat._sort_by_indices_()
 
         return sparse_cat
 

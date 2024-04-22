@@ -29,7 +29,7 @@ class SparseScatterMixin(SparseShapeMixin):
         if min(dims) < max(keeped_dims):
             sorted_sparse = self.clone()
             # pylint: disable=protected-access
-            sorted_sparse._sort_indices_(dims)
+            sorted_sparse._sort_by_indices_(dims)
 
         batch = sorted_sparse.index_sorted(dims)
         indices = torch.empty(
