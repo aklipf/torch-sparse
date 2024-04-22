@@ -11,4 +11,3 @@ class SparseProdMixin(BaseSparse):
         """
         Cartesian product of sparse tensors over a dimension
         """
-        pass

@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from .typing import Self
 
 
-class BaseSparse(object):
+class BaseSparse:
     def __init__(
         self,
         indices: torch.LongTensor,
@@ -110,6 +110,7 @@ class BaseSparse(object):
         dims = self._included_dims(except_dim)
 
         diff = (self.indices[dims, 1:] != self.indices[dims, :-1]).any(dim=0)
+        # pylint: disable=not-callable
         return F.pad(diff.cumsum(0), (1, 0), value=0)
 
     def _set_shape_(self, shape: tuple):
@@ -119,7 +120,7 @@ class BaseSparse(object):
         if dim is None:
             return list(self.dims)
 
-        elif isinstance(dim, int):
+        if isinstance(dim, int):
             assert dim < len(self.shape)
             return [dim]
 

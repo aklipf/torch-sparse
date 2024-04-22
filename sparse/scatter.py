@@ -1,7 +1,6 @@
-from typing import Literal, List, Tuple
+from typing import Literal
 
 import torch
-import torch.nn.functional as F
 from torch_scatter import scatter_add
 
 from .typing import Self
@@ -29,6 +28,7 @@ class SparseScatterMixin(SparseShapeMixin):
         keeped_dims = self._included_dims(dims)
         if min(dims) < max(keeped_dims):
             sorted_sparse = self.clone()
+            # pylint: disable=protected-access
             sorted_sparse._sort_indices_(dims)
 
         batch = sorted_sparse.index_sorted(dims)

@@ -65,6 +65,7 @@ class SparseCatMixin(BaseSparse):
         out_shape = shapes.amax(dim=0)
 
         if len(dim) > 0:
+            # pylint: disable=not-callable
             ptr = F.pad(shapes[:, dim].cumsum(0), (0, 0, 1, 0), value=0)
             out_shape[dim] = ptr[-1]
             ptr = ptr.to(device)

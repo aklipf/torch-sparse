@@ -1,7 +1,4 @@
-from typing import Literal, List, Tuple, Iterable
-
 import torch
-import torch.nn.functional as F
 
 from .typing import Self
 from .base import BaseSparse

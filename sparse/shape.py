@@ -22,7 +22,7 @@ class SparseShapeMixin(BaseSparse):
         )
         new_shape = list(self.shape)
         new_shape.insert(dim, 1)
-        self.__shape = tuple(new_shape)
+        self._set_shape_(tuple(new_shape))
 
         return self
 
@@ -36,7 +36,7 @@ class SparseShapeMixin(BaseSparse):
             keep_dim = [d for d, _ in enumerate(self.shape) if d != dim]
 
         self.indices = self.indices[keep_dim]
-        self.__shape = tuple([self.shape[d] for d in keep_dim])
+        self._set_shape_(tuple(map(lambda d: self.shape[d], keep_dim)))
 
         return self
 
@@ -80,7 +80,7 @@ class SparseShapeMixin(BaseSparse):
         if num_inferred > 1:
             raise ValueError("Shape cannot be inferred from more than one dimension")
 
-        elif num_inferred == 1:
+        if num_inferred == 1:
             numel = self.numel()
             total_known = self._prod(filter(lambda x: x != -1, shape))
 
@@ -95,6 +95,7 @@ class SparseShapeMixin(BaseSparse):
         self, shape: List[int]
     ) -> Tuple[torch.LongTensor, torch.LongTensor]:
         tensor_shape = torch.tensor(shape, dtype=torch.long, device=self.device)
+        # pylint: disable=not-callable
         tensor_offset = F.pad(
             tensor_shape.flip((0,)).cumprod(0)[:-1], (1, 0), value=1
         ).flip((0,))
@@ -106,7 +107,7 @@ class SparseShapeMixin(BaseSparse):
     ) -> Tuple[torch.LongTensor, List[int]]:
         if math.log2(self.numel()) > 63.0:
             raise IndexError(
-                "Cannot calculate a global index of more than 63 bits (Sparse tensor with numel()>2^63)"
+                "Cannot calculate a global index of more than 63 bits (numel()>2^63)"
             )
 
         shape = self._inferre_shape(shape)
