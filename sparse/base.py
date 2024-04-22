@@ -141,17 +141,18 @@ class BaseSparse:
 
         return sorted(list(set(self.dims) - except_dim))
 
-    def _argsort_indices(self, except_dim: int | Iterable = None) -> torch.LongTensor:
-        dims = self._included_dims(except_dim)
-
+    @classmethod
+    def _argsort_indices(
+        cls, indices: torch.LongTensor, dims: List[int]
+    ) -> torch.LongTensor:
         perm = None
 
         for i in reversed(dims):
 
             if perm is None:
-                current_indices = self.indices[i]
+                current_indices = indices[i]
             else:
-                current_indices = self.indices[i, perm]
+                current_indices = indices[i, perm]
 
             current_perm = torch.argsort(current_indices, stable=True)
 
@@ -164,8 +165,8 @@ class BaseSparse:
 
     def _sort_indices_(self, except_dim: int | Iterable = None):
         """Sort indices and values"""
-
-        perm = self._argsort_indices(except_dim)
+        dims = self._included_dims(except_dim)
+        perm = self._argsort_indices(self.indices, dims)
 
         # apply reindexing
         self.indices = self.indices[:, perm]

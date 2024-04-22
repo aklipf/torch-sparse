@@ -177,23 +177,15 @@ def test_base_argsort_indices():
     indices = torch.randint(0, 1024, (3, 1024))
     sparse = BaseSparse(indices, sort=False)
 
-    perm = sparse._argsort_indices()
-    sorted = (
-        (sparse.indices[0, perm] << 20)
-        + (sparse.indices[1, perm] << 10)
-        + sparse.indices[2, perm]
-    )
-    assert (sorted.diff() >= 0).all()
-
-    perm = sparse._argsort_indices(1)
+    perm = BaseSparse._argsort_indices(sparse.indices, [0, 2])
     sorted = (sparse.indices[0, perm] << 10) + sparse.indices[2, perm]
     assert (sorted.diff() >= 0).all()
 
-    perm = sparse._argsort_indices((0, 1))
+    perm = BaseSparse._argsort_indices(sparse.indices, [2])
     sorted = sparse.indices[2, perm]
     assert (sorted.diff() >= 0).all()
 
-    perm = sparse._argsort_indices((1, 2))
+    perm = BaseSparse._argsort_indices(sparse.indices, [0])
     sorted = sparse.indices[0, perm]
     assert (sorted.diff() >= 0).all()
 
