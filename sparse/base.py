@@ -2,6 +2,7 @@ from typing import Iterable, List
 
 import torch
 import torch.nn.functional as F
+from torch_scatter import scatter_add
 
 from .typing import Self
 
@@ -33,6 +34,7 @@ class BaseSparse:
 
         if sort and (not self._is_sorted()):
             self._sort_by_indices_()
+            self._remove_sorted_duplicate_()
 
     @property
     def shape(self) -> tuple:
@@ -173,6 +175,17 @@ class BaseSparse:
 
         if self.values is not None:
             self.values = self.values[perm]
+
+    def _remove_sorted_duplicate_(self):
+        mask = F.pad(
+            (self.indices[:, 1:] != self.indices[:, :-1]).any(dim=0), (1, 0), value=True
+        )
+
+        self.indices = self.indices[:, mask]
+
+        if self.values is not None:
+            batch = F.pad(mask.cumsum(0), (1, 0), value=0)[:-1]
+            self.values = scatter_add(self.values, batch, dim=0)
 
     def _is_sorted(self) -> bool:
         sorted_mask = self.indices.diff(dim=1) <= 0

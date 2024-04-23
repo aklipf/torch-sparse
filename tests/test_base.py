@@ -15,10 +15,11 @@ def test_base_sort():
         ]
     )
     perm = torch.randperm(indices.shape[1])
+    unique = torch.unique(indices).unsqueeze(0)
 
     sparse = BaseSparse(indices=indices[:, perm])
 
-    assert (sparse.indices == indices).all().item()
+    assert (sparse.indices == unique).all().item()
 
     indices = torch.tensor(
         [
@@ -27,11 +28,18 @@ def test_base_sort():
             [0, 2, 1, 3, 3, 2, 2, 2, 4, 3, 5, 4, 5, 5, 6],
         ]
     )
+    unique = torch.tensor(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+            [0, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6],
+            [0, 2, 1, 3, 2, 4, 3, 5, 4, 5, 6],
+        ]
+    )
     perm = torch.randperm(indices.shape[1])
 
     sparse = BaseSparse(indices=indices[:, perm])
 
-    assert (sparse.indices == indices).all().item()
+    assert (sparse.indices == unique).all().item()
 
 
 def test_base_no_sort():
@@ -50,7 +58,7 @@ def test_base_no_sort():
 
 
 def test_base_sort_with_values():
-    indices = torch.randperm(128)[:12].sort().values.unsqueeze(0)
+    indices = torch.unique(torch.randperm(128))[:12].unsqueeze(0)
     values = torch.arange(indices.shape[1], dtype=torch.long)
     perm = torch.randperm(indices.shape[1])
 
