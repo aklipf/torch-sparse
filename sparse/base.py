@@ -18,7 +18,9 @@ class BaseSparse:
         assert indices.ndim == 2 and indices.dtype == torch.long
         assert values is None or values.ndim in (1, 2)
         assert values is None or indices.shape[1] == values.shape[0]
-        assert shape is None or indices.shape[0] == len(shape)
+        assert shape is None or (
+            isinstance(shape, tuple) and indices.shape[0] == len(shape)
+        )
         assert shape is not None or indices.shape[1] != 0
         assert values is None or indices.device == values.device
 

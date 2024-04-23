@@ -58,7 +58,7 @@ class SparseScatterMixin(SparseShapeMixin):
             n = self._prod(map(lambda i: self.shape[i], dims))
             values = values / n
 
-        shape = list(
+        shape = tuple(
             map(lambda x: self.shape[x], set(range(len(self.shape))) - set(dims))
         )
         return self.__class__(indices, values, shape)

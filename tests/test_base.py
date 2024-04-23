@@ -115,6 +115,8 @@ def test_base_assert():
 
     with pytest.raises(AssertionError):
         BaseSparse(torch.tensor([[0], [0]], dtype=torch.long), shape=(2,))
+    with pytest.raises(AssertionError):
+        BaseSparse(torch.tensor([[0], [0]], dtype=torch.long), shape=[2])
 
     # assert not empty when auto detect shape
     with pytest.raises(AssertionError):

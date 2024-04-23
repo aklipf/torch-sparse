@@ -230,7 +230,7 @@ def test_shape_indices_to_shape():
     assert shape_other == other_shape
 
     # back to original
-    sparse = SparseShapeMixin(other_indices, shape=other_shape)
+    sparse = SparseShapeMixin(other_indices, shape=tuple(other_shape))
     indices, shape_original = sparse._indices_to_shape((1024, 1024, 1024))
     assert (indices == indices_initial).all()
     assert shape_original == [1024, 1024, 1024]
