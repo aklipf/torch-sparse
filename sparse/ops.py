@@ -10,7 +10,13 @@ from .base import BaseSparse
 def _intersection_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolTensor:
     equal = (indices[:, 1:] != indices[:, :-1]).any(dim=0)
     equal_batch = F.pad(equal.cumsum(0), (1, 0), value=0)
-    return equal_batch[: -(n_tensors - 1)] == equal_batch[n_tensors - 1 :]
+    mask = equal_batch[: -(n_tensors - 1)] == equal_batch[n_tensors - 1 :]
+    return F.pad(mask, (0, n_tensors - 1), value=False)
+
+
+def _union_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolTensor:
+    equal = (indices[:, 1:] != indices[:, :-1]).any(dim=0)
+    return F.pad(equal, (1, 0), value=True)
 
 
 class SparseOpsMixin(BaseSparse):
@@ -40,40 +46,62 @@ class SparseOpsMixin(BaseSparse):
         dims = tuple(range(len(shape)))
 
         # concatenating indices and values
-        indices, values = cls._cat_values(tensors)
+        cat_indices, cat_values = cls._cat_values(tensors)
 
         # sorting
-        perm = cls._argsort_indices(indices, dims=dims)
-        indices = indices[:, perm]
+        perm = cls._argsort_indices(cat_indices, dims=dims)
+        cat_indices = cat_indices[:, perm]
 
         # keep indices when at least len(tensors) values are present (calculate intersection over the indices)
-        mask = indices_mask(indices, len(tensors))
+        mask = indices_mask(cat_indices, len(tensors))
 
         # filter indices based on intersection
-        indices = indices[:, : -(len(tensors) - 1)][:, mask]
+        indices = cat_indices[:, mask]
+        # indices = cat_indices[:, : -(len(tensors) - 1)][:, mask]
 
         # filter values and performe the operation
-        if values is not None:
-            values = values[perm]
+        if cat_values is not None:
+            cat_values = cat_values[perm]
 
             # select the values
-            indices_idx = torch.arange(
-                values.shape[0] - len(tensors) + 1, dtype=torch.long, device=device
-            )[mask]
+            indices_idx = mask.nonzero().flatten()
             diff_idx = torch.arange(len(tensors), dtype=torch.long, device=device)
             idx = indices_idx[:, None] + diff_idx[None, :]
 
+            # print("idx", idx)
+            # print(cat_values.shape)
+            # print(F.pad(cat_values, (0, 0, 0, len(tensors) - 1), value=0))
+            # print(F.pad(cat_values, (0, 0, 0, len(tensors) - 1), value=0).shape)
+            cat_values = F.pad(cat_values, (0, 0, 0, len(tensors) - 1), value=0)[idx]
+            # print("test")
+            # print(cat_values)
+            # print(cat_indices)
+            # print(indices_idx)
+            # print(idx)
+            mask_idx = (idx < (cat_indices.shape[1] - len(tensors) + 1)).all(dim=1)
+            # print(mask_idx)
+            # print(cat_indices[:, indices_idx])
+            # print(idx)
+            pad_mask = (
+                cat_indices[:, idx[mask_idx].t()]
+                == cat_indices[:, None, indices_idx[mask_idx]]
+            ).all(dim=0)
+            # print(cat_values.shape)
+            # print(pad_mask, pad_mask.shape)
+            cat_values[mask_idx][~pad_mask.t()] = 0
+            # print(cat_values)
+
             if ops is None:  # concatenation if no ops
-                values = values[idx].reshape(idx.shape[0], -1)
+                cat_values = cat_values.reshape(idx.shape[0], -1)
             else:
-                values = ops(values[idx]).type(values.dtype)
+                cat_values = ops(cat_values).type(cat_values.dtype)
 
             # filter nul values
-            mask = (values != 0).all(dim=1)
-            indices, values = indices[:, mask], values[mask]
+            mask = (cat_values != 0).all(dim=1)
+            indices, cat_values = indices[:, mask], cat_values[mask]
 
         # create a new sparse tensor containing the result
-        return cls(indices, values=values, shape=shape)
+        return cls(indices, values=cat_values, shape=shape)
 
     @classmethod
     def _get_shape(cls, tensors: List[Self]) -> tuple:
@@ -96,26 +124,37 @@ class SparseOpsMixin(BaseSparse):
         return indices, values
 
 
-a = SparseOpsMixin(
-    torch.tensor([[0, 1, 1, 2, 2, 3], [0, 1, 2, 1, 2, 3]], dtype=torch.long),
-    # torch.tensor([[1], [1], [1], [1], [1], [1]], dtype=torch.int32),
-    shape=(4, 4),
-)
-b = SparseOpsMixin(
-    torch.tensor([[0, 1, 1, 2, 3], [0, 1, 2, 2, 3]], dtype=torch.long),
-    # torch.tensor([[1], [2], [1], [1], [1]], dtype=torch.int32),
-    shape=(4, 4),
-)
-c = SparseOpsMixin(
-    torch.tensor([[0, 1, 1, 2, 2], [0, 1, 2, 2, 3]], dtype=torch.long),
-    # torch.tensor([[-2], [-3], [1], [1], [1]], dtype=torch.int32),
-    shape=(4, 4),
-)
+if __name__ == "__main__":
+    a = SparseOpsMixin(
+        torch.tensor([[0, 3, 1, 1, 2, 2, 3], [0, 0, 1, 2, 1, 2, 3]], dtype=torch.long),
+        torch.tensor([[1], [5], [1], [1], [1], [1], [1]], dtype=torch.int32),
+        shape=(4, 4),
+    )
+    b = SparseOpsMixin(
+        torch.tensor([[0, 1, 1, 2, 3], [0, 1, 2, 2, 3]], dtype=torch.long),
+        torch.tensor([[1], [2], [1], [1], [1]], dtype=torch.int32),
+        shape=(4, 4),
+    )
+    c = SparseOpsMixin(
+        torch.tensor([[0, 1, 1, 2, 2], [0, 1, 2, 2, 3]], dtype=torch.long),
+        torch.tensor([[-2], [-2], [1], [1], [1]], dtype=torch.int32),
+        shape=(4, 4),
+    )
 
-print(a.to_dense())
-print(b.to_dense())
-print(c.to_dense())
-
-result = a * b * c
-print(result)
-print(result.to_dense())
+    print(a.to_dense())
+    print(b.to_dense())
+    print(c.to_dense())
+    result = SparseOpsMixin._generic_ops(
+        [a, b, c], _intersection_mask, lambda x: x.prod(dim=1)
+    )
+    print(result)
+    print(result.to_dense())
+    print(a.to_dense() * b.to_dense() * c.to_dense())
+    result = SparseOpsMixin._generic_ops([a, b, c], _union_mask, lambda x: x.sum(dim=1))
+    print(result)
+    print(result.to_dense())
+    print(a.to_dense() + b.to_dense() + c.to_dense())
+    exit(0)
+    result = a * b * c
+    print(result)
+    print(result.to_dense())
