@@ -18,6 +18,12 @@ class SparseScatterMixin(SparseShapeMixin):
     def scatter(
         self, dims: int | tuple = None, reduce: Literal["sum", "mean"] = "sum"
     ) -> Self:
+        assert (
+            self.dtype
+            not in (torch.bool, torch.int, torch.int32, torch.int64, torch.long)
+            or reduce != "mean"
+        ), "Mean reduction can be computed only on real or complex numbers"
+
         dims = self._dim_to_list(dims)
         dims = sorted(dims, reverse=True)
 
@@ -41,7 +47,7 @@ class SparseScatterMixin(SparseShapeMixin):
 
         if self.values is None:
             values = scatter_add(
-                torch.ones_like(sorted_sparse.indices[0], dtype=torch.float32),
+                torch.ones_like(sorted_sparse.indices[0], dtype=sorted_sparse.dtype),
                 batch,
                 dim=0,
             )

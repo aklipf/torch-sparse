@@ -51,7 +51,7 @@ class BaseSparse:
     @property
     def dtype(self) -> type:
         if self.values is None:
-            return torch.float32
+            return torch.bool
 
         return self.values.dtype
 
