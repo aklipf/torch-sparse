@@ -5,8 +5,10 @@ from sparse.cat import SparseCatMixin
 
 from .mock_tensor import MockTensor
 from .random_sparse import randint_sparse
+from .assert_sys import assert_no_out_arr
 
 
+@assert_no_out_arr
 def test_cat_integration_1d():
     torch.manual_seed(0)
     random = [randint_sparse((4,), ratio=0.5) for _ in range(3)]
@@ -21,6 +23,7 @@ def test_cat_integration_1d():
     assert (cat_tensor.to_dense() == dense_result).all()
 
 
+@assert_no_out_arr
 def test_cat_integration_2d():
     torch.manual_seed(0)
     random = [randint_sparse((4, 3), ratio=0.5) for _ in range(3)]
@@ -67,6 +70,7 @@ def test_cat_integration_2d():
     assert (cat_tensor.to_dense() == dense_result).all()
 
 
+@assert_no_out_arr
 def test_cat_integration_3d():
     torch.manual_seed(0)
     random = [randint_sparse((4, 3, 5), ratio=0.5) for _ in range(3)]
@@ -131,6 +135,7 @@ def test_cat_integration_3d():
     assert (cat_tensor.to_dense() == dense_result).all()
 
 
+@assert_no_out_arr
 def test_cat_assert_cat():
     sparse_list = [
         SparseCatMixin(MockTensor((3, 16), dtype=torch.long)) for _ in range(4)
@@ -180,6 +185,7 @@ def test_cat_assert_cat():
         SparseCatMixin._assert_cat(sparse_list, [3])
 
 
+@assert_no_out_arr
 def test_cat_get_device_shape_ptr():
     sparse_list = [
         SparseCatMixin(
@@ -265,6 +271,7 @@ def test_cat_get_device_shape_ptr():
     assert ptr is None
 
 
+@assert_no_out_arr
 def test_cat_cat_sparse():
     index_list = [
         torch.tensor(
@@ -337,6 +344,7 @@ def test_cat_cat_sparse():
     assert cat_size.tolist() == [indices.shape[1] for indices in index_list]
 
 
+@assert_no_out_arr
 def test_cat_reindex_cat_dim():
     sparse = SparseCatMixin(
         torch.tensor(

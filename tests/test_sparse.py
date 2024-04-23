@@ -7,11 +7,15 @@ from sparse.scatter import SparseScatterMixin
 from sparse.cat import SparseCatMixin
 from sparse.prod import SparseProdMixin
 
+from .assert_sys import assert_no_out_arr
 
+
+@assert_no_out_arr
 def test_sparse_version():
     assert __version__ == "0.0.1"
 
 
+@assert_no_out_arr
 def test_sparse():
     assert issubclass(SparseTensor, BaseSparse)
     assert issubclass(SparseTensor, SparseTypeMixin)

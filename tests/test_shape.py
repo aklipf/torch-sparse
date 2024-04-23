@@ -6,6 +6,7 @@ import torch
 from sparse.shape import SparseShapeMixin
 
 from .mock_tensor import MockTensor
+from .assert_sys import assert_no_out_arr
 
 
 def __assert_unsqueeze_(
@@ -18,6 +19,7 @@ def __assert_unsqueeze_(
     assert (sparse.indices == out_indices).all()
 
 
+@assert_no_out_arr
 def test_shape_unsqueeze_inplace():
     sparse = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long))
 
@@ -63,6 +65,7 @@ def __assert_squeeze_(
     assert (sparse.indices == out_indices).all()
 
 
+@assert_no_out_arr
 def test_shape_squeeze_inplace():
     sparse = SparseShapeMixin(MockTensor((3, 12), dtype=torch.long))
 
@@ -128,6 +131,7 @@ def test_shape_squeeze_inplace():
     )
 
 
+@assert_no_out_arr
 def test_shape_unsqueeze():
     sparse = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long))
     result = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long))
@@ -142,6 +146,7 @@ def test_shape_unsqueeze():
     result.unsqueeze_.assert_called_once_with(1)
 
 
+@assert_no_out_arr
 def test_shape_squeeze():
     sparse = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long))
     result = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long))
@@ -156,6 +161,7 @@ def test_shape_squeeze():
     result.squeeze_.assert_called_once_with(1)
 
 
+@assert_no_out_arr
 def test_shape_numel():
     assert (
         SparseShapeMixin(MockTensor((2, 12), dtype=torch.long), shape=(5, 6)).numel()
@@ -172,6 +178,7 @@ def test_shape_numel():
     )
 
 
+@assert_no_out_arr
 def test_shape_inferre_shape():
     sparse = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long), shape=(5, 6))
 
@@ -194,6 +201,7 @@ def test_shape_inferre_shape():
         sparse._inferre_shape((-1, 7, 3))
 
 
+@assert_no_out_arr
 def test_shape_indices_to_shape():
     # sort indices
     sparse = SparseShapeMixin(
@@ -228,6 +236,7 @@ def test_shape_indices_to_shape():
     assert shape_original == [1024, 1024, 1024]
 
 
+@assert_no_out_arr
 def test_shape_reshape_inplace():
     sparse = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long), shape=(5, 6))
     reshaped_tensor = MockTensor((3, 12), dtype=torch.long)
@@ -244,6 +253,7 @@ def test_shape_reshape_inplace():
     assert result.shape == reshaped_shape
 
 
+@assert_no_out_arr
 def test_shape_reshape_copy():
     sparse = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long), shape=(5, 6))
     cloned = SparseShapeMixin(MockTensor((2, 12), dtype=torch.long), shape=(5, 6))

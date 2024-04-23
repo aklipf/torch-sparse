@@ -7,8 +7,10 @@ from sparse.typing import Self
 from sparse.type import SparseTypeMixin
 
 from .mock_tensor import MockTensor
+from .assert_sys import assert_no_out_arr
 
 
+@assert_no_out_arr
 def test_type():
     sparse = SparseTypeMixin(MockTensor((2, 12), dtype=torch.long))
 
@@ -33,6 +35,7 @@ def test_type():
     sparse.values.type.assert_called_once_with(torch.int)
 
 
+@assert_no_out_arr
 def test_type_float():
     sparse = SparseTypeMixin(
         MockTensor((2, 12), dtype=torch.long), MockTensor((12, 1), dtype=torch.long)
@@ -48,6 +51,7 @@ def test_type_float():
     assert result == result_float
 
 
+@assert_no_out_arr
 def test_type_double():
     sparse = SparseTypeMixin(
         MockTensor((2, 12), dtype=torch.long), MockTensor((12, 1), dtype=torch.long)
@@ -63,6 +67,7 @@ def test_type_double():
     assert result == result_double
 
 
+@assert_no_out_arr
 def test_type_int():
     sparse = SparseTypeMixin(
         MockTensor((2, 12), dtype=torch.long), MockTensor((12, 1), dtype=torch.float32)
@@ -78,6 +83,7 @@ def test_type_int():
     assert result == result_int
 
 
+@assert_no_out_arr
 def test_type_long():
     sparse = SparseTypeMixin(
         MockTensor((2, 12), dtype=torch.long), MockTensor((12, 1), dtype=torch.float32)
@@ -93,6 +99,7 @@ def test_type_long():
     assert result == result_long
 
 
+@assert_no_out_arr
 def test_type_bool():
     sparse = SparseTypeMixin(
         MockTensor((2, 12), dtype=torch.long), MockTensor((12, 1), dtype=torch.float32)

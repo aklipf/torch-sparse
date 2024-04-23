@@ -8,6 +8,7 @@ from sparse.scatter import SparseScatterMixin
 
 from .mock_tensor import MockTensor
 from .random_sparse import randint_sparse
+from .assert_sys import assert_no_out_arr
 
 
 def assert_scatter_sum(
@@ -16,7 +17,8 @@ def assert_scatter_sum(
     sparse = SparseScatterMixin(indices.clone(), shape=(32, 32, 32, 32))
     assert (sparse.indices == indices).all()
     assert (
-        sparse.scatter(dims, reduce="sum").to_dense() == sparse.to_dense().sum(dims)
+        sparse.scatter(dims, reduce="sum").to_dense()
+        == (sparse.to_dense().sum(dims) != 0)
     ).all()
     assert (sparse.indices == indices).all()
 
@@ -31,13 +33,6 @@ def assert_scatter_sum(
 def assert_scatter_mean(
     indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple
 ):
-    sparse = SparseScatterMixin(indices.clone(), shape=(32, 32, 32, 32))
-    assert (sparse.indices == indices).all()
-    assert (
-        sparse.scatter(dims, reduce="mean").to_dense() == sparse.to_dense().mean(dims)
-    ).all()
-    assert (sparse.indices == indices).all()
-
     sparse = SparseScatterMixin(indices.clone(), values.clone(), shape=(32, 32, 32, 32))
     assert (sparse.indices == indices).all()
     assert (
@@ -46,6 +41,7 @@ def assert_scatter_mean(
     assert (sparse.indices == indices).all()
 
 
+@assert_no_out_arr
 def test_scatter_scatter():
     torch.manual_seed(0)
     indices, values = randint_sparse((32, 32, 32, 32))
@@ -62,6 +58,13 @@ def test_scatter_scatter():
     assert_scatter_sum(indices, values, (0, 1, 3))
     assert_scatter_sum(indices, values, None)
 
+    sparse = SparseScatterMixin(indices.clone(), shape=(32, 32, 32, 32))
+    with pytest.raises(
+        AssertionError,
+        match="Mean reduction can be computed only on real or complex numbers",
+    ):
+        sparse.scatter(reduce="mean")
+
     assert_scatter_mean(indices, values, (0,))
     assert_scatter_mean(indices, values, (0, 1))
     assert_scatter_mean(indices, values, (0, 1, 2))
@@ -75,6 +78,7 @@ def test_scatter_scatter():
     assert_scatter_mean(indices, values, None)
 
 
+@assert_no_out_arr
 def test_scatter_sum():
     sparse = SparseScatterMixin(MockTensor((4, 16), dtype=torch.long))
     result = SparseScatterMixin(MockTensor((1, 3), dtype=torch.long))
@@ -88,6 +92,7 @@ def test_scatter_sum():
     sparse.scatter.assert_called_once_with(dim, "sum")
 
 
+@assert_no_out_arr
 def test_scatter_mean():
     sparse = SparseScatterMixin(MockTensor((4, 16), dtype=torch.long))
     result = SparseScatterMixin(MockTensor((1, 3), dtype=torch.long))
