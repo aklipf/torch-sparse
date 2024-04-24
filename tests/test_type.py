@@ -36,6 +36,27 @@ def test_type():
 
 
 @assert_no_out_arr
+def test_type_anon():
+
+    sparse = SparseTypeMixin(
+        torch.tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.long),
+        torch.tensor([0, 1, 2], dtype=torch.float),
+        shape=(3, None, 3),
+    )
+
+    result = sparse.type(torch.int)
+
+    assert isinstance(result, SparseTypeMixin)
+    assert result.dtype == torch.int
+    assert result.shape == (3, None, 3)
+    assert (
+        result.indices
+        == torch.tensor([[0, 1, 2], [0, 0, 0], [0, 1, 2]], dtype=torch.long)
+    ).all()
+    assert result.real_shape == (3, 1, 3)
+
+
+@assert_no_out_arr
 def test_type_float():
     sparse = SparseTypeMixin(
         MockTensor((2, 12), dtype=torch.long), MockTensor((12, 1), dtype=torch.long)

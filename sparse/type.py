@@ -4,7 +4,7 @@ from .typing import Self
 from .base import BaseSparse
 
 
-class SparseTypeMixin(BaseSparse):  # TODO: add unit test with None in shape
+class SparseTypeMixin(BaseSparse):
 
     def type(self, dtype: type) -> Self:
         if self.values is None:
@@ -15,8 +15,8 @@ class SparseTypeMixin(BaseSparse):  # TODO: add unit test with None in shape
         return self.__class__(
             self.indices.clone(),
             self.values.type(dtype),
-            self.shape,
-        )
+            self.real_shape,
+        )._set_shape_(self.shape)
 
     def float(self) -> Self:
         return self.type(torch.float32)
