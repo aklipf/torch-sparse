@@ -228,6 +228,7 @@ class BaseSparse:
             self.values = self.values[perm]
 
     def _remove_sorted_duplicate_(self):
+        # pylint: disable=not-callable
         mask = F.pad(
             (self.indices[:, 1:] != self.indices[:, :-1]).any(dim=0), (1, 0), value=True
         )
