@@ -4,7 +4,7 @@ from .typing import Self
 from .base import BaseSparse
 
 
-class SparseTypeMixin(BaseSparse):
+class SparseTypeMixin(BaseSparse):  # TODO: add unit test with None in shape
 
     def type(self, dtype: type) -> Self:
         if self.values is None:

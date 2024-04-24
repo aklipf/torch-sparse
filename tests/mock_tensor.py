@@ -24,9 +24,6 @@ class MockTensor:
     def diff(self, **kwargs) -> torch.LongTensor:
         return torch.tensor([[1]]).repeat(self.shape[0], 1)
 
-    def __getitem__(self, *args):
-        return torch.tensor(True)
-
     def __repr__(self) -> str:
         return (
             f"MockTensor(shape={self.shape}, dtype={self.dtype}, device={self.device})"

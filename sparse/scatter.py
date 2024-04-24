@@ -7,7 +7,7 @@ from .typing import Self
 from .shape import SparseShapeMixin
 
 
-class SparseScatterMixin(SparseShapeMixin):
+class SparseScatterMixin(SparseShapeMixin):  # TODO: add unit test with None in shape
 
     def sum(self, dim: int | tuple = None) -> Self:
         return self.scatter(dim, "sum")

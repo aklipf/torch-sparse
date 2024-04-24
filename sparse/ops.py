@@ -7,9 +7,11 @@ from .typing import Self
 from .base import BaseSparse
 
 
-def _intersection_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolTensor:
+def _intersection_mask(
+    indices: torch.LongTensor, n_tensors: int
+) -> torch.BoolTensor:  # TODO: add unit test with None in shape
     equal = (indices[:, 1:] != indices[:, :-1]).any(dim=0)
-    equal_batch = F.pad(equal.cumsum(0), (1, 0), value=0)
+    equal_batch = BaseSparse._get_ptr(equal)
     mask = equal_batch[: -(n_tensors - 1)] == equal_batch[n_tensors - 1 :]
     return F.pad(mask, (0, n_tensors - 1), value=False)
 
