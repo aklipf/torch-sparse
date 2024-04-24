@@ -105,6 +105,7 @@ class BaseSparse:
         return self.indices.device
 
     def to(self, device: torch.device) -> Self:
+        # pylint: disable=protected-access
         return self.__class__(
             indices=self.indices.to(device),
             values=None if self.values is None else self.values.to(device),
@@ -112,6 +113,7 @@ class BaseSparse:
         )._set_shape_(self.__shape)
 
     def clone(self) -> Self:
+        # pylint: disable=protected-access
         return self.__class__(
             indices=self.indices.clone(),
             values=None if self.values is None else self.values.clone(),
@@ -119,6 +121,7 @@ class BaseSparse:
         )._set_shape_(self.__shape)
 
     def detach(self) -> Self:
+        # pylint: disable=protected-access
         return self.__class__(
             indices=self.indices.detach(),
             values=None if self.values is None else self.values.detach(),

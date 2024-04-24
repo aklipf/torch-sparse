@@ -12,6 +12,7 @@ class SparseTypeMixin(BaseSparse):
                 "Cannot convert the type of a sparse tensor without stored values."
             )
 
+        # pylint: disable=protected-access
         return self.__class__(
             self.indices.clone(),
             self.values.type(dtype),
