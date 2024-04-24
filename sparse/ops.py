@@ -134,8 +134,8 @@ class SparseOpsMixin(BaseSparse):
         assert len(tensors) > 0
 
         shape = tensors[0].shape
-        for t in tensors[1:]:
-            assert shape == t.shape
+        for tensor in tensors[1:]:
+            assert shape == tensor.shape
 
         return shape
 
