@@ -4,7 +4,7 @@ from .typing import Self
 from .base import BaseSparse
 
 
-class SparseMaskMixin(BaseSparse):  # TODO: add unit test with None in shape
+class SparseMaskMixin(BaseSparse):
 
     def mask_(self, mask: torch.BoolTensor) -> Self:
         assert mask.ndim == 1 and mask.shape[0] == self.indices.shape[1]
