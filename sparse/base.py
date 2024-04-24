@@ -66,6 +66,7 @@ class BaseSparse:
         if len(dims) == 1:
             return indices
 
+        # didn't find a way to test this without gpu
         zeros = torch.zeros_like(indices[:1])
         cat_args = []
         for dims_subset in dims:
@@ -79,6 +80,10 @@ class BaseSparse:
     @property
     def shape(self) -> tuple:
         return self.__shape
+
+    @property
+    def real_shape(self) -> tuple:
+        return tuple(map(lambda x: x if x is not None else 1, self.__shape))
 
     @property
     def ndim(self) -> int:
@@ -103,22 +108,22 @@ class BaseSparse:
         return self.__class__(
             indices=self.indices.to(device),
             values=None if self.values is None else self.values.to(device),
-            shape=self.shape,
-        )
+            shape=self.real_shape,
+        )._set_shape_(self.__shape)
 
     def clone(self) -> Self:
         return self.__class__(
             indices=self.indices.clone(),
             values=None if self.values is None else self.values.clone(),
-            shape=self.shape,
-        )
+            shape=self.real_shape,
+        )._set_shape_(self.__shape)
 
     def detach(self) -> Self:
         return self.__class__(
             indices=self.indices.detach(),
             values=None if self.values is None else self.values.detach(),
-            shape=self.shape,
-        )
+            shape=self.real_shape,
+        )._set_shape_(self.__shape)
 
     def __repr__(self) -> str:
         return f"""{self.__class__.__name__}(shape={self.shape},
@@ -128,9 +133,9 @@ class BaseSparse:
 
     def to_dense(self) -> torch.Tensor:
         if self.values is None or self.values.shape[1] == 1:
-            shape = self.shape
+            shape = self.real_shape
         else:
-            shape = self.shape + self.values.shape[1:]
+            shape = self.real_shape + self.values.shape[1:]
 
         x = torch.zeros(shape, dtype=self.dtype, device=self.device)
         indices = [self.indices[i] for i in range(self.indices.shape[0])]
@@ -148,27 +153,33 @@ class BaseSparse:
     def dims(self) -> tuple:
         return tuple(range(len(self.__shape)))
 
+    @staticmethod
+    def _get_ptr(idx: torch.LongTensor) -> torch.LongTensor:
+        # pylint: disable=not-callable
+        return F.pad(idx.cumsum(0), (1, 0), value=0)
+
     def index_sorted(self, except_dim: int | Iterable = None) -> torch.LongTensor:
         dims = self._included_dims(except_dim)
 
         diff = (self.indices[dims, 1:] != self.indices[dims, :-1]).any(dim=0)
-        # pylint: disable=not-callable
-        return F.pad(diff.cumsum(0), (1, 0), value=0)
 
-    def _set_shape_(self, shape: tuple):
+        return self._get_ptr(diff)
+
+    def _set_shape_(self, shape: tuple) -> Self:
         self.__shape = shape
+        return self
 
     def _dim_to_list(self, dim: int | tuple = None) -> List[int]:
         if dim is None:
             return list(self.dims)
 
         if isinstance(dim, int):
-            assert dim < len(self.shape)
+            assert dim < self.ndim
             return [dim]
 
         lst_dim = sorted(list(dim))
 
-        assert lst_dim[-1] < len(self.shape)
+        assert lst_dim[-1] < self.ndim
         assert len(lst_dim) == len(set(dim)), "multiple dimensions are the same"
 
         return lst_dim
@@ -224,7 +235,7 @@ class BaseSparse:
         self.indices = self.indices[:, mask]
 
         if self.values is not None:
-            batch = F.pad(mask.cumsum(0), (1, 0), value=0)[:-1]
+            batch = self._get_ptr(mask)[:-1]
             self.values = scatter_add(self.values, batch, dim=0)
 
     def _is_sorted(self) -> bool:
@@ -248,5 +259,8 @@ class BaseSparse:
     def _prod(cls, values: Iterable[int]) -> int:
         result = 1
         for value in values:
+            if value is None:
+                continue
+
             result *= int(value)
         return result
