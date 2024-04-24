@@ -16,8 +16,8 @@ class SparseTypeMixin(BaseSparse):
         return self.__class__(
             self.indices.clone(),
             self.values.type(dtype),
-            self.real_shape,
-        )._set_shape_(self.shape)
+            self.shape,
+        )._set_shape_(self.real_shape)
 
     def float(self) -> Self:
         return self.type(torch.float32)

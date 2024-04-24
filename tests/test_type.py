@@ -48,12 +48,12 @@ def test_type_anon():
 
     assert isinstance(result, SparseTypeMixin)
     assert result.dtype == torch.int
-    assert result.shape == (3, None, 3)
+    assert result.shape == (3, 1, 3)
+    assert result.real_shape == (3, None, 3)
     assert (
         result.indices
         == torch.tensor([[0, 1, 2], [0, 0, 0], [0, 1, 2]], dtype=torch.long)
     ).all()
-    assert result.real_shape == (3, 1, 3)
 
 
 @assert_no_out_arr

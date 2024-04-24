@@ -210,8 +210,8 @@ def test_base_shape():
         tensor = sparse.base.BaseSparse(
             MockTensor(shape=(2, 5), dtype=torch.long), shape=(12, None, 4)
         )
-        assert tensor.shape == (12, None, 4)
-        assert tensor.real_shape == (12, 1, 4)
+        assert tensor.shape == (12, 1, 4)
+        assert tensor.real_shape == (12, None, 4)
 
     indices = MockTensor(shape=(1, 3), dtype=torch.long)
     indices.amax = mock.Mock("amax", return_value=torch.tensor([3], dtype=torch.long))
@@ -487,8 +487,8 @@ def test_base_to_without_values():
 
     assert isinstance(result, BaseSparse)
     assert result.device == torch.device("cpu")
-    assert result.shape == (3, None, 3, None)
-    assert result.real_shape == (3, 1, 3, 1)
+    assert result.shape == (3, 1, 3, 1)
+    assert result.real_shape == (3, None, 3, None)
     assert (
         result.indices
         == torch.tensor([[0, 1, 2], [0, 0, 0], [0, 1, 2], [0, 0, 0]], dtype=torch.long)
@@ -538,8 +538,8 @@ def test_base_clone_without_values():
     result = tensor.clone()
 
     assert isinstance(result, BaseSparse)
-    assert result.shape == (3, None, 3, None)
-    assert result.real_shape == (3, 1, 3, 1)
+    assert result.shape == (3, 1, 3, 1)
+    assert result.real_shape == (3, None, 3, None)
     assert (
         result.indices
         == torch.tensor([[0, 1, 2], [0, 0, 0], [0, 1, 2], [0, 0, 0]], dtype=torch.long)
@@ -592,8 +592,8 @@ def test_base_detach_without_values():
     result = tensor.detach()
 
     assert isinstance(result, BaseSparse)
-    assert result.shape == (3, None, 3, None)
-    assert result.real_shape == (3, 1, 3, 1)
+    assert result.shape == (3, 1, 3, 1)
+    assert result.real_shape == (3, None, 3, None)
     assert (
         result.indices
         == torch.tensor([[0, 1, 2], [0, 0, 0], [0, 1, 2], [0, 0, 0]], dtype=torch.long)
@@ -648,7 +648,7 @@ def test_base_repr():
     )
     assert (
         repr(sparce)
-        == """BaseSparse(shape=(3, None, 3, None),
+        == """BaseSparse(shape=(3, 1, 3, 1),
   indices=tensor([[0, 0, 0, 1, 1, 1, 2, 2, 2],
         [0, 0, 0, 0, 0, 0, 0, 0, 0],
         [0, 1, 2, 0, 1, 2, 0, 1, 2],

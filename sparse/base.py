@@ -79,19 +79,19 @@ class BaseSparse:
 
     @property
     def shape(self) -> tuple:
-        return self.__shape
-
-    @property
-    def real_shape(self) -> tuple:
         return tuple(map(lambda x: x if x is not None else 1, self.__shape))
 
     @property
+    def real_shape(self) -> tuple:
+        return self.__shape
+
+    @property
     def ndim(self) -> int:
-        return len(self.shape)
+        return len(self.__shape)
 
     @property
     def dim(self) -> int:
-        return len(self.shape)
+        return len(self.__shape)
 
     @property
     def dtype(self) -> type:
@@ -109,7 +109,7 @@ class BaseSparse:
         return self.__class__(
             indices=self.indices.to(device),
             values=None if self.values is None else self.values.to(device),
-            shape=self.real_shape,
+            shape=self.shape,
         )._set_shape_(self.__shape)
 
     def clone(self) -> Self:
@@ -117,7 +117,7 @@ class BaseSparse:
         return self.__class__(
             indices=self.indices.clone(),
             values=None if self.values is None else self.values.clone(),
-            shape=self.real_shape,
+            shape=self.shape,
         )._set_shape_(self.__shape)
 
     def detach(self) -> Self:
@@ -125,7 +125,7 @@ class BaseSparse:
         return self.__class__(
             indices=self.indices.detach(),
             values=None if self.values is None else self.values.detach(),
-            shape=self.real_shape,
+            shape=self.shape,
         )._set_shape_(self.__shape)
 
     def __repr__(self) -> str:
@@ -136,9 +136,9 @@ class BaseSparse:
 
     def to_dense(self) -> torch.Tensor:
         if self.values is None or self.values.shape[1] == 1:
-            shape = self.real_shape
+            shape = self.shape
         else:
-            shape = self.real_shape + self.values.shape[1:]
+            shape = self.shape + self.values.shape[1:]
 
         x = torch.zeros(shape, dtype=self.dtype, device=self.device)
         indices = [self.indices[i] for i in range(self.indices.shape[0])]
