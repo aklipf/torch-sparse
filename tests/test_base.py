@@ -126,6 +126,71 @@ def test_base_assert():
 
 
 @assert_no_out_arr
+def test_base_process_shape():
+    indices = torch.tensor(
+        [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]], dtype=torch.long
+    )
+    with pytest.raises(
+        AssertionError,
+        match="The number of dimension of the shape and the indices didn't match",
+    ):
+        BaseSparse._process_shape(indices, (3, 6, 4))
+
+    with pytest.raises(
+        AssertionError,
+        match="The number of dimension of the shape and the indices didn't match",
+    ):
+        BaseSparse._process_shape(indices, (3, 6, 4, 5, 3))
+
+    with pytest.raises(
+        ValueError,
+        match="shape must be composed of int of None values",
+    ):
+        BaseSparse._process_shape(indices, (3, 6, 0, 3))
+
+    with pytest.raises(
+        ValueError,
+        match="shape must be composed of int of None values",
+    ):
+        BaseSparse._process_shape(indices, (3, 6, 3.5, 3))
+
+    assert (BaseSparse._process_shape(indices, (4, 4, 4, 4)) == indices).all()
+
+    assert (
+        BaseSparse._process_shape(indices, (4, 4, None, 4, 4))
+        == torch.cat((indices[:2], torch.zeros_like(indices[:1]), indices[2:]), dim=0)
+    ).all()
+
+    assert (
+        BaseSparse._process_shape(indices, (4, 4, None, 4, None, 4))
+        == torch.cat(
+            (
+                indices[:2],
+                torch.zeros_like(indices[:1]),
+                indices[2:3],
+                torch.zeros_like(indices[:1]),
+                indices[3:],
+            ),
+            dim=0,
+        )
+    ).all()
+
+    assert (
+        BaseSparse._process_shape(indices, (4, 4, None, 4, None, None, None, 4))
+        == torch.cat(
+            (
+                indices[:2],
+                torch.zeros_like(indices[:1]),
+                indices[2:3],
+                torch.zeros_like(indices[:3]),
+                indices[3:],
+            ),
+            dim=0,
+        )
+    ).all()
+
+
+@assert_no_out_arr
 def test_base_shape():
     sparse = BaseSparse(MockTensor(shape=(1, 3), dtype=torch.long), shape=(5,))
     assert sparse.shape == (5,)

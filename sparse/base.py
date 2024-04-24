@@ -16,27 +16,65 @@ class BaseSparse:
         sort: bool = True,
     ):
         assert indices.ndim == 2 and indices.dtype == torch.long
-        assert values is None or values.ndim in (1, 2)
-        assert values is None or indices.shape[1] == values.shape[0]
-        assert shape is None or (
-            isinstance(shape, tuple) and indices.shape[0] == len(shape)
+        assert values is None or (
+            values.ndim in (1, 2) and indices.shape[1] == values.shape[0]
         )
-        assert shape is not None or indices.shape[1] != 0
+        assert (shape is None and indices.shape[1] != 0) or isinstance(shape, tuple)
         assert values is None or indices.device == values.device
 
         if shape is None:
             shape = tuple((indices.amax(dim=1) + 1).tolist())
+        else:
+            indices = self._process_shape(indices, shape)
 
         if values is not None and values.ndim == 1:
             values.unsqueeze_(1)
 
-        self.__shape = tuple(shape)
+        self.__shape = shape
         self.indices = indices
         self.values = values
 
         if sort and (not self._is_sorted()):
             self._sort_by_indices_()
             self._remove_sorted_duplicate_()
+
+    @classmethod
+    def _process_shape(
+        cls, indices: torch.LongTensor, shape: tuple
+    ) -> torch.LongTensor:
+        dims = []
+        current_dims = []
+        count = 0
+        for s in shape:
+            if isinstance(s, int) and s > 0:
+                current_dims.append(count)
+                count += 1
+            elif s is None:
+                dims.append(current_dims)
+                dims.append(None)
+                current_dims = []
+            else:
+                raise ValueError("shape must be composed of int of None values")
+
+        if len(current_dims) != 0:
+            dims.append(current_dims)
+
+        assert (
+            count == indices.shape[0]
+        ), "The number of dimension of the shape and the indices didn't match"
+
+        if len(dims) == 1:
+            return indices
+
+        zeros = torch.zeros_like(indices[:1])
+        cat_args = []
+        for dims_subset in dims:
+            if dims_subset is None:
+                cat_args.append(zeros)
+            else:
+                cat_args.append(indices[dims_subset])
+
+        return torch.cat(cat_args, dim=0)
 
     @property
     def shape(self) -> tuple:
