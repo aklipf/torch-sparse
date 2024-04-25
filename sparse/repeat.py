@@ -8,7 +8,7 @@ from .typing import Self
 from .base import BaseSparse
 
 
-class SparseShapeMixin(BaseSparse):
+class SparseShapeMixin(BaseSparse):  # TODO: add unit test with None in shape
 
     def unsqueeze_(self, dim: int) -> Self:
         assert isinstance(dim, int)

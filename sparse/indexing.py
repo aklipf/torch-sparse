@@ -7,7 +7,7 @@ from .typing import Self
 from .base import BaseSparse
 
 
-class SparseIndexingMixin(BaseSparse):  # TODO: add unit test with None in shape
+class SparseIndexingMixin(BaseSparse):
 
     def __getitem__(self, idx):
         if not isinstance(idx, tuple):

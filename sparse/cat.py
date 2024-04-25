@@ -7,7 +7,7 @@ from .typing import Self
 from .base import BaseSparse
 
 
-class SparseCatMixin(BaseSparse):  # TODO: add unit test with None in shape
+class SparseCatMixin(BaseSparse):
 
     @classmethod
     def cat(cls, sparse_tensors: Iterable[Self], dim: int | tuple = None) -> Self:

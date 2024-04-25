@@ -159,7 +159,7 @@ def test_cat_assert_cat():
             SparseCatMixin(MockTensor((3, 16), dtype=torch.long)) for _ in range(4)
         ]
         sparse_list.append(
-            SparseCatMixin(  # TODO: fix this with mock
+            SparseCatMixin(
                 MockTensor((3, 16), dtype=torch.long, device="cuda"), sort=False
             )
         )
