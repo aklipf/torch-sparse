@@ -74,7 +74,7 @@ def test_ops_union_mask():
 
 
 @assert_no_out_arr
-def test_ops_and():
+def test_ops_and():  # TODO: check multiple dimension
     assert (
         (a_bool & b_bool & c_bool).to_dense()
         == (a_bool.to_dense() & b_bool.to_dense() & c_bool.to_dense())
@@ -82,7 +82,7 @@ def test_ops_and():
 
 
 @assert_no_out_arr
-def test_ops_or():
+def test_ops_or():  # TODO: check multiple dimension
     assert (
         (a_bool | b_bool | c_bool).to_dense()
         == (a_bool.to_dense() | b_bool.to_dense() | c_bool.to_dense())

@@ -345,6 +345,7 @@ def test_base_device():
 
 
 @assert_no_out_arr
+@mock.patch("sparse.base.BaseSparse._is_sorted", mock.MagicMock(return_value=True))
 def test_base_to_without_values():
     mocked_tensor = BaseSparse(indices=MockTensor(shape=(2, 3), dtype=torch.long))
 

@@ -55,12 +55,6 @@ class SparseOpsMixin(SparseScatterMixin):
         )
 
     @classmethod
-    def cat_values(cls, *tensors: Self):
-        assert all(map(lambda x: x.dtype == tensors[0].dtype, tensors[1:]))
-
-        return cls._generic_ops(list(tensors), _intersection_mask)
-
-    @classmethod
     def _generic_ops(
         cls,
         tensors: List[Self],
