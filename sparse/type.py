@@ -12,12 +12,11 @@ class SparseTypeMixin(BaseSparse):
                 "Cannot convert the type of a sparse tensor without stored values."
             )
 
-        # pylint: disable=protected-access
         return self.__class__(
             self.indices.clone(),
             self.values.type(dtype),
             self.shape,
-        )._set_shape_(self.real_shape)
+        )
 
     def float(self) -> Self:
         return self.type(torch.float32)

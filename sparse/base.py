@@ -25,7 +25,8 @@ class BaseSparse:
         if shape is None:
             shape = tuple((indices.amax(dim=1) + 1).tolist())
         else:
-            indices = self._process_shape(indices, shape)
+            assert len(shape) == indices.shape[0]
+            assert all(map(lambda x: isinstance(x, int), shape))
 
         if values is not None and values.ndim == 1:
             values.unsqueeze_(1)
@@ -38,51 +39,8 @@ class BaseSparse:
             self._sort_by_indices_()
             self._remove_sorted_duplicate_()
 
-    @classmethod
-    def _process_shape(
-        cls, indices: torch.LongTensor, shape: tuple
-    ) -> torch.LongTensor:
-        dims = []
-        current_dims = []
-        count = 0
-        for s in shape:
-            if isinstance(s, int) and s > 0:
-                current_dims.append(count)
-                count += 1
-            elif s is None:
-                dims.append(current_dims)
-                dims.append(None)
-                current_dims = []
-            else:
-                raise ValueError("shape must be composed of int of None values")
-
-        if len(current_dims) != 0:
-            dims.append(current_dims)
-
-        assert (
-            count == indices.shape[0]
-        ), "The number of dimension of the shape and the indices didn't match"
-
-        if len(dims) == 1:
-            return indices
-
-        # didn't find a way to test this without gpu
-        zeros = torch.zeros_like(indices[:1])
-        cat_args = []
-        for dims_subset in dims:
-            if dims_subset is None:
-                cat_args.append(zeros)
-            else:
-                cat_args.append(indices[dims_subset])
-
-        return torch.cat(cat_args, dim=0)
-
     @property
     def shape(self) -> tuple:
-        return tuple(map(lambda x: x if x is not None else 1, self.__shape))
-
-    @property
-    def real_shape(self) -> tuple:
         return self.__shape
 
     @property
@@ -105,28 +63,25 @@ class BaseSparse:
         return self.indices.device
 
     def to(self, device: torch.device) -> Self:
-        # pylint: disable=protected-access
         return self.__class__(
             indices=self.indices.to(device),
             values=None if self.values is None else self.values.to(device),
             shape=self.shape,
-        )._set_shape_(self.__shape)
+        )
 
     def clone(self) -> Self:
-        # pylint: disable=protected-access
         return self.__class__(
             indices=self.indices.clone(),
             values=None if self.values is None else self.values.clone(),
             shape=self.shape,
-        )._set_shape_(self.__shape)
+        )
 
     def detach(self) -> Self:
-        # pylint: disable=protected-access
         return self.__class__(
             indices=self.indices.detach(),
             values=None if self.values is None else self.values.detach(),
             shape=self.shape,
-        )._set_shape_(self.__shape)
+        )
 
     def __repr__(self) -> str:
         return f"""{self.__class__.__name__}(shape={self.shape},

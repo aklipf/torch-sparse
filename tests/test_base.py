@@ -128,97 +128,19 @@ def test_base_assert():
 
 
 @assert_no_out_arr
-def test_base_process_shape():
-    indices = torch.tensor(
-        [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]], dtype=torch.long
-    )
-    with pytest.raises(
-        AssertionError,
-        match="The number of dimension of the shape and the indices didn't match",
-    ):
-        BaseSparse._process_shape(indices, (3, 6, 4))
-
-    with pytest.raises(
-        AssertionError,
-        match="The number of dimension of the shape and the indices didn't match",
-    ):
-        BaseSparse._process_shape(indices, (3, 6, 4, 5, 3))
-
-    with pytest.raises(
-        ValueError,
-        match="shape must be composed of int of None values",
-    ):
-        BaseSparse._process_shape(indices, (3, 6, 0, 3))
-
-    with pytest.raises(
-        ValueError,
-        match="shape must be composed of int of None values",
-    ):
-        BaseSparse._process_shape(indices, (3, 6, 3.5, 3))
-
-    assert (BaseSparse._process_shape(indices, (4, 4, 4, 4)) == indices).all()
-
-    assert (
-        BaseSparse._process_shape(indices, (4, 4, None, 4, 4))
-        == torch.cat((indices[:2], torch.zeros_like(indices[:1]), indices[2:]), dim=0)
-    ).all()
-
-    assert (
-        BaseSparse._process_shape(indices, (4, 4, None, 4, None, 4))
-        == torch.cat(
-            (
-                indices[:2],
-                torch.zeros_like(indices[:1]),
-                indices[2:3],
-                torch.zeros_like(indices[:1]),
-                indices[3:],
-            ),
-            dim=0,
-        )
-    ).all()
-
-    assert (
-        BaseSparse._process_shape(indices, (4, 4, None, 4, None, None, None, 4))
-        == torch.cat(
-            (
-                indices[:2],
-                torch.zeros_like(indices[:1]),
-                indices[2:3],
-                torch.zeros_like(indices[:3]),
-                indices[3:],
-            ),
-            dim=0,
-        )
-    ).all()
-
-
-@assert_no_out_arr
 @mock.patch("sparse.base.BaseSparse._is_sorted", mock.MagicMock(return_value=True))
 def test_base_shape():
     tensor = BaseSparse(MockTensor(shape=(1, 3), dtype=torch.long), shape=(5,))
     assert tensor.shape == (5,)
-    assert tensor.real_shape == (5,)
 
     tensor = BaseSparse(MockTensor(shape=(2, 3), dtype=torch.long), shape=(12, 4))
     assert tensor.shape == (12, 4)
-    assert tensor.real_shape == (12, 4)
-
-    with mock.patch(
-        "sparse.base.BaseSparse._process_shape",
-        mock.MagicMock(return_value=MockTensor(shape=(3, 5), dtype=torch.long)),
-    ):
-        tensor = sparse.base.BaseSparse(
-            MockTensor(shape=(2, 5), dtype=torch.long), shape=(12, None, 4)
-        )
-        assert tensor.shape == (12, 1, 4)
-        assert tensor.real_shape == (12, None, 4)
 
     indices = MockTensor(shape=(1, 3), dtype=torch.long)
     indices.amax = mock.Mock("amax", return_value=torch.tensor([3], dtype=torch.long))
 
     tensor = BaseSparse(indices)
     assert tensor.shape == (4,)
-    assert tensor.real_shape == (4,)
 
     indices.amax.assert_called_once_with(dim=1)
 
@@ -229,7 +151,6 @@ def test_base_shape():
 
     tensor = BaseSparse(indices)
     assert tensor.shape == (4, 6)
-    assert tensor.real_shape == (4, 6)
 
     indices.amax.assert_called_once_with(dim=1)
 
@@ -244,14 +165,6 @@ def test_base_ndim():
     tensor = BaseSparse(MockTensor(shape=(3, 3), dtype=torch.long), shape=(5, 2, 9))
     assert tensor.ndim == 3
     assert tensor.dim == 3
-
-    with mock.patch(
-        "sparse.base.BaseSparse._process_shape",
-        mock.MagicMock(return_value=MockTensor(shape=(2, 3), dtype=torch.long)),
-    ):
-        tensor = BaseSparse(MockTensor(shape=(1, 3), dtype=torch.long), shape=(5, None))
-        assert tensor.ndim == 2
-        assert tensor.dim == 2
 
 
 @assert_no_out_arr
@@ -377,14 +290,6 @@ def test_base_dims():
         1,
         2,
     )
-    with mock.patch(
-        "sparse.base.BaseSparse._process_shape",
-        mock.MagicMock(return_value=MockTensor(shape=(6, 5), dtype=torch.long)),
-    ):
-        assert BaseSparse(
-            MockTensor(shape=(3, 5), dtype=torch.long),
-            shape=(3, 3, None, 3, None, None),
-        ).dims == (0, 1, 2, 3, 4, 5)
 
 
 @assert_no_out_arr
@@ -422,18 +327,6 @@ def test_base_dtype():
         ).dtype
         == torch.float32
     )
-    with mock.patch(
-        "sparse.base.BaseSparse._process_shape",
-        mock.MagicMock(return_value=MockTensor(shape=(3, 5), dtype=torch.long)),
-    ):
-        assert (
-            BaseSparse(
-                MockTensor(shape=(2, 5), dtype=torch.long),
-                values=MockTensor(shape=(5, 1), dtype=torch.float32),
-                shape=(2, None, 3),
-            ).dtype
-            == torch.float32
-        )
 
 
 @assert_no_out_arr
@@ -450,19 +343,6 @@ def test_base_device():
         ),
     ).device == torch.device("cuda")
 
-    with mock.patch(
-        "sparse.base.BaseSparse._process_shape",
-        mock.MagicMock(
-            return_value=MockTensor(
-                shape=(3, 5), dtype=torch.long, device=torch.device("cuda")
-            )
-        ),
-    ):
-        assert BaseSparse(
-            MockTensor(shape=(2, 5), dtype=torch.long, device=torch.device("cuda")),
-            shape=(4, 4, None),
-        ).device == torch.device("cuda")
-
 
 @assert_no_out_arr
 def test_base_to_without_values():
@@ -477,22 +357,6 @@ def test_base_to_without_values():
     assert id(result.indices) == id(to_tensor)
     assert result.device == "cuda"
     mocked_tensor.indices.to.assert_called_once_with("cuda")
-
-    tensor = BaseSparse(
-        indices=torch.tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.long),
-        shape=(3, None, 3, None),
-    )
-
-    result = tensor.to("cpu")
-
-    assert isinstance(result, BaseSparse)
-    assert result.device == torch.device("cpu")
-    assert result.shape == (3, 1, 3, 1)
-    assert result.real_shape == (3, None, 3, None)
-    assert (
-        result.indices
-        == torch.tensor([[0, 1, 2], [0, 0, 0], [0, 1, 2], [0, 0, 0]], dtype=torch.long)
-    ).all()
 
 
 @assert_no_out_arr
@@ -529,21 +393,6 @@ def test_base_clone_without_values():
     assert isinstance(result, BaseSparse)
     assert id(result.indices) == id(cloned_indices)
     mocked_tensor.indices.clone.assert_called_once_with()
-
-    tensor = BaseSparse(
-        indices=torch.tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.long),
-        shape=(3, None, 3, None),
-    )
-
-    result = tensor.clone()
-
-    assert isinstance(result, BaseSparse)
-    assert result.shape == (3, 1, 3, 1)
-    assert result.real_shape == (3, None, 3, None)
-    assert (
-        result.indices
-        == torch.tensor([[0, 1, 2], [0, 0, 0], [0, 1, 2], [0, 0, 0]], dtype=torch.long)
-    ).all()
 
 
 @assert_no_out_arr
@@ -583,21 +432,6 @@ def test_base_detach_without_values():
     assert isinstance(result, BaseSparse)
     assert id(result.indices) == id(result_indices)
     mocked_tensor.indices.detach.assert_called_once_with()
-
-    tensor = BaseSparse(
-        indices=torch.tensor([[0, 1, 2], [0, 1, 2]], dtype=torch.long),
-        shape=(3, None, 3, None),
-    )
-
-    result = tensor.detach()
-
-    assert isinstance(result, BaseSparse)
-    assert result.shape == (3, 1, 3, 1)
-    assert result.real_shape == (3, None, 3, None)
-    assert (
-        result.indices
-        == torch.tensor([[0, 1, 2], [0, 0, 0], [0, 1, 2], [0, 0, 0]], dtype=torch.long)
-    ).all()
 
 
 @assert_no_out_arr
@@ -640,23 +474,6 @@ def test_base_repr():
   device="cpu")"""
     )
 
-    sparce = BaseSparse(
-        indices=torch.tensor(
-            [[0, 0, 0, 1, 1, 1, 2, 2, 2], [0, 1, 2, 0, 1, 2, 0, 1, 2]], dtype=torch.long
-        ),
-        shape=(3, None, 3, None),
-    )
-    assert (
-        repr(sparce)
-        == """BaseSparse(shape=(3, 1, 3, 1),
-  indices=tensor([[0, 0, 0, 1, 1, 1, 2, 2, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 1, 2, 0, 1, 2, 0, 1, 2],
-        [0, 0, 0, 0, 0, 0, 0, 0, 0]]),
-  values=None,
-  device="cpu")"""
-    )
-
 
 @assert_no_out_arr
 def test_base_to_dense():
@@ -679,19 +496,6 @@ def test_base_to_dense():
                 [[1, 5], [0, 0], [0, 0]],
                 [[0, 0], [2, 6], [0, 0]],
                 [[3, 7], [0, 0], [4, 8]],
-            ]
-        )
-    ).all()
-
-    assert (
-        BaseSparse(
-            indices, torch.tensor([[1, 5], [2, 6], [3, 7], [4, 8]]), shape=(3, None, 3)
-        ).to_dense()
-        == torch.tensor(
-            [
-                [[[1, 5], [0, 0], [0, 0]]],
-                [[[0, 0], [2, 6], [0, 0]]],
-                [[[3, 7], [0, 0], [4, 8]]],
             ]
         )
     ).all()
