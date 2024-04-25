@@ -1,4 +1,4 @@
-from typing import List, Callable, Tuple
+from typing import List, Callable, Tuple, Iterable
 
 import torch
 import torch.nn.functional as F
@@ -9,21 +9,15 @@ from .base import BaseSparse
 
 class SparseIndexingMixin(BaseSparse):
 
-    def __getitem__(self, idx):
-        if not isinstance(idx, tuple):
-            idx = (idx,)
+    def __getitem__(self, indexing: Iterable[slice | None]):
+        if not isinstance(indexing, tuple):
+            indexing = (indexing,)
 
-        print("__getitem__", idx)
+        result = self.clone()
+        for i, idx in enumerate(indexing):
+            assert idx == slice(None) or idx is None
 
+            if idx is None:
+                result.unsqueeze_(i)
 
-a = SparseIndexingMixin(
-    torch.tensor([[0, 3, 1, 1, 2, 2, 3], [0, 0, 1, 2, 1, 2, 3]], dtype=torch.long),
-    torch.tensor([[1], [5], [1], [1], [1], [1], [1]], dtype=torch.int32),
-    shape=(4, 4),
-)
-
-a[0]
-a[:, 0]
-a[..., 0]
-a[2, 3]
-a[2, None, 3, None]
+        return result

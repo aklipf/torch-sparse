@@ -1,10 +1,12 @@
-from typing import List, Callable, Tuple
+from typing import List, Callable, Tuple, Iterable
+import itertools
 
 import torch
 import torch.nn.functional as F
 
 from .typing import Self
 from .base import BaseSparse
+from .scatter import SparseScatterMixin
 
 
 def _intersection_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolTensor:
@@ -19,7 +21,7 @@ def _union_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolTensor:
     return F.pad(equal, (1, 0), value=True)
 
 
-class SparseOpsMixin(BaseSparse):
+class SparseOpsMixin(SparseScatterMixin):
 
     def __and__(self, other: Self):
         assert self.dtype == other.dtype == torch.bool
@@ -53,6 +55,12 @@ class SparseOpsMixin(BaseSparse):
         )
 
     @classmethod
+    def cat_values(cls, *tensors: Self):
+        assert all(map(lambda x: x.dtype == tensors[0].dtype, tensors[1:]))
+
+        return cls._generic_ops(list(tensors), _intersection_mask)
+
+    @classmethod
     def _generic_ops(
         cls,
         tensors: List[Self],
@@ -60,6 +68,9 @@ class SparseOpsMixin(BaseSparse):
         ops: Callable[[torch.Tensor], torch.Tensor] = None,
     ) -> Self:
         assert len(tensors) > 1
+
+        tensors = cls._cast_sparse_tensors(tensors)
+
         shape = cls._get_shape(tensors)
         dims = tuple(range(len(shape)))
 
@@ -160,3 +171,91 @@ class SparseOpsMixin(BaseSparse):
         )
 
         return batch.repeat_interleave(size)
+
+    @classmethod
+    def _cast_sparse_tensors(cls, tensors: List[Self]) -> List[Self]:
+        shapes = [tensor.shape for tensor in tensors]
+
+        brodcast = []
+        for i, shape_i in enumerate(zip(*shapes)):
+            count = len(set(shape_i))
+            assert count == 1 or (count == 2 and min(shape_i) == 1), "Shape don't match"
+
+            if count == 1:
+                continue
+
+            to_shape = max(shape_i)
+            if to_shape == 1:
+                continue
+
+            cat_indices = torch.cat(
+                [tensor.indices[i] for tensor in tensors if tensor.shape[i] > 1],
+                dim=0,
+            )
+            unique_indices = torch.unique(cat_indices)
+
+            brodcast.append((unique_indices, i, to_shape))
+
+        if len(brodcast) == 0:
+            return tensors
+
+        brodcasted_tensors = []
+        for tensor in tensors:
+            filtered_args = list(filter(lambda x: tensor.shape[x[1]] == 1, brodcast))
+
+            if len(filtered_args) == 0:
+                brodcasted_tensors.append(tensor)
+            else:
+                brodcasted_tensors.append(tensor._repeat_indices(*zip(*filtered_args)))
+
+        return brodcasted_tensors
+
+    def _repeat_indices(
+        self,
+        indices: Iterable[torch.LongTensor],
+        dims: Iterable[int],
+        sizes: Iterable[int],
+    ) -> Self:
+        cart_prod = self._sparse_cart_prod(*indices)
+
+        repeated_dim = cart_prod.repeat_interleave(self.indices.shape[1], dim=1)
+        repeated_indices = self.indices.repeat(1, cart_prod.shape[1])
+        repeated_indices[list(dims)] = repeated_dim
+
+        new_shape = list(self.shape)
+        for dim, size in zip(dims, sizes):
+            new_shape[dim] = size
+
+        if self.values is None:
+            repeated_values = None
+        else:
+            repeated_values = self.values.repeat(cart_prod.shape[1], 1)
+
+        return self.__class__(
+            repeated_indices, values=repeated_values, shape=tuple(new_shape)
+        )
+
+    @classmethod
+    def _sparse_cart_prod(cls, *tensors: torch.LongTensor) -> torch.LongTensor:
+        assert (
+            len(tensors) > 0
+        ), "No input tensor, can't calculate the cartesian product"
+
+        if len(tensors) == 1:
+            return tensors[0].unsqueeze(0)
+
+        size = [tensor.shape[0] for tensor in tensors]
+
+        repeat = [1]
+        for t_size in size[:-1]:
+            repeat.append(repeat[-1] * t_size)
+
+        interleave = [1]
+        for t_size in size[-1:0:-1]:
+            interleave.insert(0, interleave[0] * t_size)
+
+        prod = []
+        for tensor, inter, rep in zip(tensors, interleave, repeat):
+            prod.append(tensor.repeat_interleave(inter, dim=0).repeat(rep))
+
+        return torch.stack(prod, dim=0)
