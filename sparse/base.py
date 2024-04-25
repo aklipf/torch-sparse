@@ -15,12 +15,17 @@ class BaseSparse:
         shape: tuple = None,
         sort: bool = True,
     ):
-        assert indices.ndim == 2 and indices.dtype == torch.long
-        assert values is None or (
-            values.ndim in (1, 2) and indices.shape[1] == values.shape[0]
-        )
+        self.indices = BaseSparse._process_indices(indices, values)
+        self.values = BaseSparse._process_values(values)
+        self.__shape = BaseSparse._process_shape(indices, shape)
+
+        if sort and (not self._is_sorted()):
+            self._sort_by_indices_()
+            self._remove_sorted_duplicate_()
+
+    @staticmethod
+    def _process_shape(indices: torch.LongTensor, shape: tuple) -> tuple:
         assert (shape is None and indices.shape[1] != 0) or isinstance(shape, tuple)
-        assert values is None or indices.device == values.device
 
         if shape is None:
             shape = tuple((indices.amax(dim=1) + 1).tolist())
@@ -28,16 +33,26 @@ class BaseSparse:
             assert len(shape) == indices.shape[0]
             assert all(map(lambda x: isinstance(x, int), shape))
 
+        return shape
+
+    @staticmethod
+    def _process_indices(
+        indices: torch.LongTensor, values: torch.Tensor
+    ) -> torch.LongTensor:
+        assert indices.ndim == 2 and indices.dtype == torch.long
+        assert values is None or (
+            values.ndim in (1, 2) and indices.shape[1] == values.shape[0]
+        )
+        assert values is None or indices.device == values.device
+
+        return indices
+
+    @staticmethod
+    def _process_values(values: torch.Tensor) -> torch.Tensor:
         if values is not None and values.ndim == 1:
             values.unsqueeze_(1)
 
-        self.__shape = shape
-        self.indices = indices
-        self.values = values
-
-        if sort and (not self._is_sorted()):
-            self._sort_by_indices_()
-            self._remove_sorted_duplicate_()
+        return values
 
     @property
     def shape(self) -> tuple:
@@ -95,17 +110,17 @@ class BaseSparse:
         else:
             shape = self.shape + self.values.shape[1:]
 
-        x = torch.zeros(shape, dtype=self.dtype, device=self.device)
+        dense_matrix = torch.zeros(shape, dtype=self.dtype, device=self.device)
         indices = [self.indices[i] for i in range(self.indices.shape[0])]
 
         if self.values is None:
-            x[indices] = 1
+            dense_matrix[indices] = 1
         elif self.values.shape[1] == 1:
-            x[indices] = self.values.flatten()
+            dense_matrix[indices] = self.values.flatten()
         else:
-            x[indices] = self.values
+            dense_matrix[indices] = self.values
 
-        return x
+        return dense_matrix
 
     @property
     def dims(self) -> tuple:

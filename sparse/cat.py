@@ -90,11 +90,11 @@ class SparseCatMixin(BaseSparse):
         else:
             cat_values = None
 
-        for st in sparse_tensors:
-            cat_size.append(st.indices.shape[1])
-            cat_indices.append(st.indices)
+        for tensor in sparse_tensors:
+            cat_size.append(tensor.indices.shape[1])
+            cat_indices.append(tensor.indices)
             if has_values:
-                cat_values.append(st.values)
+                cat_values.append(tensor.values)
 
         cat_size = torch.tensor(cat_size, dtype=torch.long, device=device)
         cat_indices = torch.cat(cat_indices, dim=1)

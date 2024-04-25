@@ -55,8 +55,8 @@ class SparseScatterMixin(SparseShapeMixin):
             values = scatter_add(sorted_sparse.values, batch, dim=0)
 
         if reduce == "mean":
-            n = self._prod(map(lambda i: self.shape[i], dims))
-            values = values / n
+            total = self._prod(map(lambda i: self.shape[i], dims))
+            values = values / total
 
         shape = tuple(
             map(lambda x: self.shape[x], set(range(len(self.shape))) - set(dims))

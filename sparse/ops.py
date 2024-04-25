@@ -1,5 +1,4 @@
 from typing import List, Callable, Tuple, Iterable
-import itertools
 
 import torch
 import torch.nn.functional as F
@@ -75,7 +74,8 @@ class SparseOpsMixin(SparseScatterMixin):
         perm = cls._argsort_indices(cat_indices, dims=dims)
         cat_indices = cat_indices[:, perm]
 
-        # keep indices when at least len(tensors) values are present (calculate intersection over the indices)
+        # keep indices when at least len(tensors) values are present
+        # (calculate intersection over the indices)
         mask = indices_mask(cat_indices, len(tensors))
 
         # filter indices based on intersection
@@ -167,10 +167,13 @@ class SparseOpsMixin(SparseScatterMixin):
         return batch.repeat_interleave(size)
 
     @classmethod
-    def _cast_sparse_tensors(cls, tensors: List[Self]) -> List[Self]:
+    def _build_broadcast(
+        cls,
+        tensors: List[Self],
+    ) -> List[Tuple[torch.LongTensor, int, int]]:
         shapes = [tensor.shape for tensor in tensors]
 
-        brodcast = []
+        broadcast = []
         for i, shape_i in enumerate(zip(*shapes)):
             count = len(set(shape_i))
             assert count == 1 or (count == 2 and min(shape_i) == 1), "Shape don't match"
@@ -188,14 +191,20 @@ class SparseOpsMixin(SparseScatterMixin):
             )
             unique_indices = torch.unique(cat_indices)
 
-            brodcast.append((unique_indices, i, to_shape))
+            broadcast.append((unique_indices, i, to_shape))
 
-        if len(brodcast) == 0:
+        return broadcast
+
+    @classmethod
+    def _cast_sparse_tensors(cls, tensors: List[Self]) -> List[Self]:
+        broadcast = cls._build_broadcast(tensors)
+
+        if len(broadcast) == 0:
             return tensors
 
         brodcasted_tensors = []
         for tensor in tensors:
-            filtered_args = list(filter(lambda x: tensor.shape[x[1]] == 1, brodcast))
+            filtered_args = list(filter(lambda x: tensor.shape[x[1]] == 1, broadcast))
 
             if len(filtered_args) == 0:
                 brodcasted_tensors.append(tensor)
