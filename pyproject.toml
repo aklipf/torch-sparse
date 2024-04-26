@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "torch-sparse-tensor"
+version = "0.1.0"
+description = "A sparse tensor framework for Pytorch."
+authors = ["Astrid Klipfel <astridklipfel@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+torch = "^2"
+torch_scatter = "*"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7"
+pytest-cov = "*"
+flake8 = "^7"
+flake8-cognitive-complexity = "*"
+pylint = "^2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

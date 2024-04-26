@@ -3,4 +3,5 @@ __pycache__
 .coverage
 .reports
 .scannerwork
+poetry.lock
 sonar*
