@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "torch-sparse-tensor"
-version = "0.1.0"
+version = "0.1.1"
 description = "A sparse tensor framework for Pytorch."
 authors = ["Astrid Klipfel <astridklipfel@gmail.com>"]
 readme = "README.md"
