@@ -5,6 +5,10 @@ description = "A sparse tensor framework for Pytorch."
 authors = ["Astrid Klipfel <astridklipfel@gmail.com>"]
 readme = "README.md"
 
+packages = [
+    { include = "sparse" }
+]
+
 [tool.poetry.dependencies]
 python = "^3.10"
 torch = "^2"
