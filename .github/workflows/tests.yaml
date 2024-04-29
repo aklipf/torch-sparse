@@ -1,0 +1,26 @@
+name: Testing
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  pytest:
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+      - name: Run image
+        uses: abatilo/actions-poetry@v2
+      - name: poetry install
+        run: |
+          poetry lock
+          poetry install --with dev
+          poetry run pip install --upgrade --force-reinstall torch --index-url https://download.pytorch.org/whl/cpu
+          poetry run pip install torch_scatter -f https://data.pyg.org/whl/torch-2.0.0+cpu.html
+      - name: poetry test
+        run: poetry run pytest
