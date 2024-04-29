@@ -1,7 +1,6 @@
 from typing import Literal
 
 import torch
-from torch_scatter import scatter_add
 
 from .typing import Self
 from .shape import SparseShapeMixin
@@ -46,13 +45,25 @@ class SparseScatterMixin(SparseShapeMixin):
         indices[:, batch] = sorted_sparse.indices[keeped_dims]
 
         if self.values is None:
-            values = scatter_add(
-                torch.ones_like(sorted_sparse.indices[0], dtype=sorted_sparse.dtype),
-                batch,
+            values = torch.zeros(
+                (indices.shape[1], 1),
+                dtype=torch.long,
+                device=sorted_sparse.indices.device,
+            ).scatter_add_(
                 dim=0,
+                index=batch[:, None],
+                src=torch.ones_like(sorted_sparse.indices[0][:, None]),
             )
         else:
-            values = scatter_add(sorted_sparse.values, batch, dim=0)
+            values = torch.zeros(
+                (indices.shape[1], sorted_sparse.values.shape[1]),
+                dtype=sorted_sparse.values.dtype,
+                device=sorted_sparse.values.device,
+            ).scatter_add_(
+                dim=0,
+                index=batch[:, None].expand_as(sorted_sparse.values),
+                src=sorted_sparse.values,
+            )
 
         if reduce == "mean":
             total = self._prod(map(lambda i: self.shape[i], dims))
@@ -78,6 +89,9 @@ class SparseScatterMixin(SparseShapeMixin):
             else:
                 value = self.values.sum().item() / self.numel()
 
-        values = torch.tensor([value], dtype=self.dtype, device=self.device)
+        if self.values is None:
+            values = torch.tensor([value], dtype=torch.long, device=self.device)
+        else:
+            values = torch.tensor([value], dtype=self.dtype, device=self.device)
 
         return self.__class__(indices, values, shape=(1,))

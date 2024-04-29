@@ -12,51 +12,55 @@ from .assert_sys import assert_no_out_arr
 
 
 def assert_scatter_sum(
-    indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple
+    indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple, shape: tuple
 ):
-    sparse = SparseScatterMixin(indices.clone(), shape=(32, 32, 32, 32))
-    assert (sparse.indices == indices).all()
+    tensor = SparseScatterMixin(indices.clone(), shape=shape)
+    assert (tensor.indices == indices).all()
     assert (
-        sparse.scatter(dims, reduce="sum").to_dense()
-        == (sparse.to_dense().sum(dims) != 0)
+        tensor.scatter(dims, reduce="sum").to_dense() == tensor.to_dense().sum(dims)
     ).all()
-    assert (sparse.indices == indices).all()
+    assert (tensor.indices == indices).all()
 
-    sparse = SparseScatterMixin(indices.clone(), values.clone(), shape=(32, 32, 32, 32))
-    assert (sparse.indices == indices).all()
+    tensor = SparseScatterMixin(indices.clone(), values.clone(), shape=shape)
+    assert (tensor.indices == indices).all()
     assert (
-        sparse.scatter(dims, reduce="sum").to_dense() == sparse.to_dense().sum(dims)
+        tensor.scatter(dims, reduce="sum").to_dense() == tensor.to_dense().sum(dims)
     ).all()
-    assert (sparse.indices == indices).all()
+    assert (tensor.indices == indices).all()
 
 
 def assert_scatter_mean(
     indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple
 ):
-    sparse = SparseScatterMixin(indices.clone(), values.clone(), shape=(32, 32, 32, 32))
-    assert (sparse.indices == indices).all()
+    tensor = SparseScatterMixin(indices.clone(), values.clone(), shape=(32, 32, 32, 32))
+    assert (tensor.indices == indices).all()
     assert (
-        sparse.scatter(dims, reduce="mean").to_dense() == sparse.to_dense().mean(dims)
+        tensor.scatter(dims, reduce="mean").to_dense() == tensor.to_dense().mean(dims)
     ).all()
-    assert (sparse.indices == indices).all()
+    assert (tensor.indices == indices).all()
 
 
 @assert_no_out_arr
 def test_scatter_scatter():
     torch.manual_seed(0)
+
+    indices, values = randint_sparse((4, 4))
+
+    assert_scatter_sum(indices, values, (0,), (4, 4))
+
     indices, values = randint_sparse((32, 32, 32, 32))
 
-    assert_scatter_sum(indices, values, (0,))
-    assert_scatter_sum(indices, values, (0, 1))
-    assert_scatter_sum(indices, values, (0, 1, 2))
-    assert_scatter_sum(indices, values, (0, 1, 2, 3))
-    assert_scatter_sum(indices, values, (0, 2, 3))
-    assert_scatter_sum(indices, values, (3,))
-    assert_scatter_sum(indices, values, (2,))
-    assert_scatter_sum(indices, values, (2, 3))
-    assert_scatter_sum(indices, values, (1, 2, 3))
-    assert_scatter_sum(indices, values, (0, 1, 3))
-    assert_scatter_sum(indices, values, None)
+    assert_scatter_sum(indices, values, (0,), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (0, 1), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (0, 1, 2), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (0, 1, 2, 3), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (0, 2, 3), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (3,), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (2,), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (2, 3), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (1, 2, 3), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, (0, 1, 3), (32, 32, 32, 32))
+    assert_scatter_sum(indices, values, None, (32, 32, 32, 32))
 
     sparse = SparseScatterMixin(indices.clone(), shape=(32, 32, 32, 32))
     with pytest.raises(
