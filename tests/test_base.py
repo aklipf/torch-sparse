@@ -80,6 +80,16 @@ def test_base_sort_with_values():
     assert (tensor.values.flatten() == values).all().item()
     assert tensor.values.shape == (12, 1)
 
+    indices = torch.unique(torch.randperm(128))[:12].unsqueeze(0)
+    values = torch.arange(indices.shape[1], dtype=torch.long)[:, None].repeat(1, 4)
+    perm = torch.randperm(indices.shape[1])
+
+    tensor = BaseSparse(indices=indices[:, perm], values=values[perm])
+
+    assert (tensor.indices == indices).all().item()
+    assert (tensor.values == values).all().item()
+    assert tensor.values.shape == (12, 4)
+
 
 @assert_no_out_arr
 def test_base_assert():

@@ -2,7 +2,6 @@ from typing import Iterable, List
 
 import torch
 import torch.nn.functional as F
-from torch_scatter import scatter_add
 
 from .typing import Self
 
@@ -209,8 +208,12 @@ class BaseSparse:
         self.indices = self.indices[:, mask]
 
         if self.values is not None:
-            batch = self._get_ptr(mask)[:-1]
-            self.values = scatter_add(self.values, batch, dim=0)
+            batch = self._get_ptr(mask)[:-1, None]
+            self.values = torch.zeros(
+                (batch[-1] + 1, self.values.shape[1]),
+                dtype=self.values.dtype,
+                device=self.values.device,
+            ).scatter_add_(dim=0, index=batch.expand_as(self.values), src=self.values)
 
     def _is_sorted(self) -> bool:
         sorted_mask = self.indices.diff(dim=1) <= 0
