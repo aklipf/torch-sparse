@@ -399,3 +399,65 @@ def test_ops_cast_sparse_tensors():
             ]
         )
     ).all()
+
+
+@assert_no_out_arr
+def test_ops_generic_ops():
+    indices = MockTensor((3, 32), dtype=torch.long)
+
+    tensor1 = SparseOpsMixin(indices, shape=(16, 16, 16))
+    tensor2 = SparseOpsMixin(indices, shape=(16, 16, 16))
+    tensor3 = SparseOpsMixin(indices, shape=(16, 16, 16))
+
+    with mock.patch(
+        "sparse.ops.SparseOpsMixin._is_shared_indices",
+        mock.MagicMock(return_value=True),
+    ) as is_shared_mock, mock.patch(
+        "sparse.ops.SparseOpsMixin._generic_shared_idx_ops",
+        mock.MagicMock(return_value=tensor3),
+    ) as generic_shared_mock:
+        tensors = [tensor1, tensor2]
+        result = SparseOpsMixin._generic_ops(tensors, None, "ops")
+
+        is_shared_mock.assert_called_once_with(tensors)
+        generic_shared_mock.assert_called_once_with(tensors, "ops")
+        assert id(result) == id(tensor3)
+
+
+@assert_no_out_arr
+def test_ops_is_shared_indices():
+    indices1 = MockTensor((3, 32), dtype=torch.long)
+    indices2 = MockTensor((3, 32), dtype=torch.long)
+
+    tensor1 = SparseOpsMixin(indices1, shape=(16, 16, 16))
+    tensor2 = SparseOpsMixin(indices2, shape=(16, 16, 16))
+
+    assert SparseOpsMixin._is_shared_indices([tensor1])
+    assert SparseOpsMixin._is_shared_indices([tensor1, tensor1])
+    assert SparseOpsMixin._is_shared_indices([tensor1, tensor1, tensor1])
+    assert SparseOpsMixin._is_shared_indices([tensor2])
+    assert not SparseOpsMixin._is_shared_indices([tensor1, tensor2])
+    assert not SparseOpsMixin._is_shared_indices([tensor1, tensor1, tensor2, tensor1])
+    assert not SparseOpsMixin._is_shared_indices([tensor1, tensor1, tensor1, tensor2])
+
+
+@assert_no_out_arr
+def test_ops_generic_shared_idx_ops():
+    indices = torch.tensor([[0, 0, 1, 2], [0, 1, 1, 2]], dtype=torch.long)
+    values1 = torch.tensor([1, 2, 3, 4])
+    values2 = torch.tensor([5, 6, 7, 8])
+
+    tensor1 = SparseOpsMixin(indices, values1)
+    tensor2 = SparseOpsMixin(indices, values2)
+
+    result = SparseOpsMixin._generic_shared_idx_ops([tensor1, tensor2])
+
+    assert id(result.indices) == id(indices)
+    assert (result.values == torch.tensor([[1, 5], [2, 6], [3, 7], [4, 8]])).all()
+
+    result = SparseOpsMixin._generic_shared_idx_ops(
+        [tensor1, tensor2], lambda x: x[:, 0] + x[:, 1]
+    )
+
+    assert id(result.indices) == id(indices)
+    assert (result.values == torch.tensor([[6], [8], [10], [12]])).all()

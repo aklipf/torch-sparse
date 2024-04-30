@@ -62,6 +62,9 @@ class SparseOpsMixin(SparseScatterMixin):
     ) -> Self:
         assert len(tensors) > 1
 
+        if cls._is_shared_indices(tensors):
+            return cls._generic_shared_idx_ops(tensors, ops)
+
         tensors = cls._cast_sparse_tensors(tensors)
 
         shape = cls._get_shape(tensors)
@@ -91,19 +94,47 @@ class SparseOpsMixin(SparseScatterMixin):
                 cat_indices, cat_values, batch, mask, len(tensors)
             )
 
-            if ops is None:  # concatenation if no ops
-                values = values.reshape(values.shape[0], -1)
-            else:
-                values = ops(values).type(values.dtype)
-
-            # filter nul values
-            mask = (values != 0).all(dim=1)
-            indices, values = indices[:, mask], values[mask]
+            indices, values = cls._apply_ops_values(indices, values, ops)
         else:
             values = None
 
         # create a new sparse tensor containing the result
         return cls(indices, values=values, shape=shape)
+
+    @classmethod
+    def _is_shared_indices(cls, tensors: List[Self]) -> bool:
+        return all(map(lambda x: id(x.indices) == id(tensors[0].indices), tensors[1:]))
+
+    @classmethod
+    def _generic_shared_idx_ops(
+        cls,
+        tensors: List[Self],
+        ops: Callable[[torch.Tensor], torch.Tensor] = None,
+    ) -> Self:
+        shape = tensors[0].shape
+        indices = tensors[0].indices
+        values = torch.stack([tensor.values for tensor in tensors], dim=1)
+        indices, values = cls._apply_ops_values(indices, values, ops)
+
+        return cls(indices, values=values, shape=shape, sort=False)
+
+    @classmethod
+    def _apply_ops_values(
+        cls,
+        indices: torch.LongTensor,
+        values: torch.Tensor,
+        ops: Callable[[torch.Tensor], torch.Tensor] = None,
+    ) -> Tuple[torch.LongTensor, torch.Tensor]:
+        if ops is None:  # concatenation if no ops
+            values = values.reshape(values.shape[0], -1)
+        else:
+            values = ops(values).type(values.dtype)
+
+        # filter nul values
+        mask = (values != 0).all(dim=1)
+        if (~mask).any():
+            return indices[:, mask], values[mask]
+        return indices, values
 
     @classmethod
     def _select_values(
