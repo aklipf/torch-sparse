@@ -15,7 +15,7 @@ def _intersection_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolT
     return F.pad(mask, (0, n_tensors - 1), value=False)
 
 
-def _union_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolTensor:
+def _union_mask(indices: torch.LongTensor, _: int) -> torch.BoolTensor:
     equal = (indices[:, 1:] != indices[:, :-1]).any(dim=0)
     return F.pad(equal, (1, 0), value=True)
 

@@ -1,10 +1,9 @@
 from __future__ import annotations
-from typing import List, Tuple
+from typing import Tuple
 
 import torch
 import torch.nn.functional as F
 
-from .typing import Self
 from .sparse import SparseTensor
 
 
@@ -32,9 +31,14 @@ class Mapping:
     def repeat_last_dims(
         cls, source: SparseTensor, ndim: int, repeat: int = 2
     ) -> Mapping:
-        boadcast_indices, mapping = cls._repeat_last_dims(source.indices, ndim, repeat)
+        boadcasted_indices, mapping = cls._repeat_last_dims(
+            source.indices, ndim, repeat
+        )
 
-        target = SparseTensor()  # TODO
+        shape = source.shape[:-ndim] + tuple(
+            sum([list(source.shape[-ndim:])] * repeat, [])
+        )
+        target = SparseTensor(boadcasted_indices, shape=shape, sort=False)
         return cls(source=source, target=target, mapping=mapping)
 
     @classmethod
@@ -103,13 +107,3 @@ class Mapping:
     @property
     def mapping(self) -> torch.LongTensor:
         return self._mapping
-
-
-if __name__ == "__main__":
-    tensor = SparseTensor(torch.randint(0, 4, (3, 16)))
-    result, batch = Mapping.repeat_last_dims(tensor.indices, 2, 2)
-    print(tensor.indices)
-    sorted_tensor = SparseTensor(result)
-    print(result)
-    print(batch)
-    assert (result == sorted_tensor.indices).all().item()

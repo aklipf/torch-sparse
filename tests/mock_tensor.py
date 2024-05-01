@@ -18,10 +18,10 @@ class MockTensor:
     def ndim(self):
         return len(self.shape)
 
-    def amax(self, **kwargs) -> torch.LongTensor:
+    def amax(self, **_) -> torch.LongTensor:
         return torch.ones(self.shape[0], dtype=torch.long)
 
-    def diff(self, **kwargs) -> torch.LongTensor:
+    def diff(self, **_) -> torch.LongTensor:
         return torch.tensor([[1]]).repeat(self.shape[0], 1)
 
     def __repr__(self) -> str:
