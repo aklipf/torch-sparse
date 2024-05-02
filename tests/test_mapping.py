@@ -10,7 +10,7 @@ def test_mapping_repeat_last_dims():
     tensor_random = SparseTensor(torch.randint(0, 4, (4, 16)), shape=(4, 5, 6, 7))
     mapping = Mapping.repeat_last_dims(tensor_random, 3, 3)
 
-    sorted_tensor = SparseTensor(mapping.target_indices, shape=mapping.target_shape)
+    sorted_tensor = mapping.create_target()
     assert (mapping.target_indices == sorted_tensor.indices).all().item()
     assert mapping.target_shape == (4, 5, 6, 7, 5, 6, 7, 5, 6, 7)
 
@@ -51,12 +51,53 @@ def test_mapping_repeat_last_dims():
 
 
 @assert_no_out_arr
+def test_mapping_create_from():
+    source = SparseTensor(
+        MockTensor((3, 32), dtype=torch.long), shape=(1024, 1024, 1024)
+    )
+    target = SparseTensor(
+        MockTensor((5, 128), dtype=torch.long), shape=(1024, 1024, 1024, 1024, 1024)
+    )
+    batch = MockTensor((128,), dtype=torch.long)
+    mapping = Mapping(source, target, batch)
+
+    values_source = MockTensor((32, 256))
+    values_target = MockTensor((128, 256))
+
+    new_source = mapping.create_source(values_source)
+    new_target = mapping.create_target(values_target)
+
+    assert isinstance(new_source, SparseTensor)
+    assert new_source.shape == source.shape
+    assert id(new_source.indices) == id(source.indices)
+    assert id(new_source.values) == id(values_source)
+
+    assert isinstance(new_target, SparseTensor)
+    assert new_target.shape == target.shape
+    assert id(new_target.indices) == id(target.indices)
+    assert id(new_target.values) == id(values_target)
+
+    new_source = mapping.create_source()
+    new_target = mapping.create_target()
+
+    assert isinstance(new_source, SparseTensor)
+    assert new_source.shape == source.shape
+    assert id(new_source.indices) == id(source.indices)
+    assert new_source.values is None
+
+    assert isinstance(new_target, SparseTensor)
+    assert new_target.shape == target.shape
+    assert id(new_target.indices) == id(target.indices)
+    assert new_target.values is None
+
+
+@assert_no_out_arr
 def test_mapping_is():
     source = SparseTensor(MockTensor((3, 16), dtype=torch.long), shape=(128, 128, 128))
     target = SparseTensor(
         MockTensor((5, 32), dtype=torch.long), shape=(128, 128, 128, 128, 128)
     )
-    batch = MockTensor((5, 32), dtype=torch.long)
+    batch = MockTensor((32,), dtype=torch.long)
     mapping = Mapping(source=source, target=target, mapping=batch)
 
     assert mapping.is_source(source)

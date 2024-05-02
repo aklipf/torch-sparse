@@ -14,6 +14,8 @@ class Mapping:
         target: sparse.SparseTensor,
         mapping: torch.LongTensor,
     ):
+        assert tuple(mapping.shape) == (target.indices.shape[1],)
+
         self._mapping = mapping
         self._source = source
         self._target = target
@@ -90,6 +92,20 @@ class Mapping:
 
     def is_target(self, tensor: sparse.SparseTensor) -> bool:
         return id(self._target.indices) == id(tensor.indices)
+
+    def create_source(self, values: torch.Tensor | None = None) -> sparse.SparseTensor:
+        assert values is None or values.shape[0] == self._source.indices.shape[1]
+
+        return self._source.__class__(
+            self._source.indices, values, self._source.shape, sort=False
+        )
+
+    def create_target(self, values: torch.Tensor | None = None) -> sparse.SparseTensor:
+        assert values is None or values.shape[0] == self._target.indices.shape[1]
+
+        return self._target.__class__(
+            self._target.indices, values, self._target.shape, sort=False
+        )
 
     @property
     def source_indices(self) -> torch.LongTensor:
