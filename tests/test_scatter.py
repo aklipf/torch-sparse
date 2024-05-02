@@ -84,7 +84,7 @@ def test_scatter_scatter():
 
 
 def assert_scatter_mapping_sum(tensor: SparseTensor, mapping: Mapping, reduction=tuple):
-    assert (tensor.indices == mapping.target_indices).all()
+    assert (tensor.indices == mapping.target.indices).all()
 
     tensor_binary = mapping.create_target()
 
@@ -105,7 +105,7 @@ def assert_scatter_mapping_sum(tensor: SparseTensor, mapping: Mapping, reduction
 def assert_scatter_mapping_mean(
     tensor: SparseTensor, mapping: Mapping, reduction=tuple
 ):
-    assert (tensor.indices == mapping.target_indices).all()
+    assert (tensor.indices == mapping.target.indices).all()
 
     tensor_shapred = mapping.create_target(tensor.values)
 

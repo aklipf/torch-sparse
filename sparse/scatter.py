@@ -27,12 +27,10 @@ class SparseScatterMixin(SparseShapeMixin):
         if isinstance(reduction, Mapping):
             assert reduction.is_target(self)
 
-            dims = range(len(reduction.source_shape), len(reduction.target_shape))
+            dims = range(len(reduction.source.shape), len(reduction.target.shape))
             values = self._scatter_value(self, reduction.mapping, dims, reduce)
 
-            return self.__class__(
-                reduction.source_indices, values, reduction.source_shape
-            )
+            return reduction.create_source(values)
 
         dims = self._dim_to_list(reduction)
         dims = sorted(dims, reverse=True)

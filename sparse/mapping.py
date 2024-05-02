@@ -108,20 +108,12 @@ class Mapping:
         )
 
     @property
-    def source_indices(self) -> torch.LongTensor:
-        return self._source.indices
+    def source(self) -> sparse.SparseTensor:
+        return self._source
 
     @property
-    def target_indices(self) -> torch.LongTensor:
-        return self._target.indices
-
-    @property
-    def source_shape(self) -> tuple:
-        return self._source.shape
-
-    @property
-    def target_shape(self) -> tuple:
-        return self._target.shape
+    def target(self) -> sparse.SparseTensor:
+        return self._target
 
     @property
     def mapping(self) -> torch.LongTensor:
