@@ -38,6 +38,16 @@ def test_mapping_repeat_last_dims():
             ]
         )
     ).all()
+    assert (
+        mapping_test.mapping
+        == torch.tensor(
+            [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8]
+        )
+    ).all()
+
+    result = tensor_test[:, :, :, None, None] & tensor_test[:, None, None, :, :]
+    assert result.shape == mapping_test.target_shape
+    assert (result.indices == mapping_test.target_indices).all()
 
 
 @assert_no_out_arr

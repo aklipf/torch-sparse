@@ -3,9 +3,11 @@ from unittest import mock
 import pytest
 import torch
 
+from sparse import SparseTensor, Mapping
 from sparse.indexing import SparseIndexingMixin
 
 from .mock_tensor import MockTensor
+from .random_sparse import randint_sparse
 from .assert_sys import assert_no_out_arr
 
 
@@ -44,3 +46,51 @@ def test_indexing_get_item():
     assert id(result) == id(clone)
     tensor.clone.assert_called_once_with()
     clone.unsqueeze_.assert_called_once_with(0)
+
+
+@assert_no_out_arr
+def test_indexing_get_item_mapping():
+    torch.manual_seed(2)
+
+    indices, _ = randint_sparse((16, 16))
+    tensor = SparseTensor(indices, shape=(16, 16))
+    result = tensor[:, :, None] & tensor[:, None, :]
+    mapping = Mapping.repeat_last_dims(tensor, 1, 2)
+    indexed = tensor[mapping]
+
+    assert result.shape == indexed.shape
+    assert (result.indices == indexed.indices).all()
+    assert indexed.values is None
+
+    indices, _ = randint_sparse((16, 16, 16))
+    tensor = SparseTensor(indices, shape=(16, 16, 16))
+    result = tensor[:, :, :, None, None] & tensor[:, None, None, :, :]
+    mapping = Mapping.repeat_last_dims(tensor, 2, 2)
+    indexed = tensor[mapping]
+
+    assert result.shape == indexed.shape
+    assert (result.indices == indexed.indices).all()
+    assert indexed.values is None
+
+    indices, _ = randint_sparse((4, 4, 4))
+    tensor = SparseTensor(indices, shape=(4, 4, 4))
+    result = tensor[:, :, :, None] & tensor[:, :, None, :]
+    result = result[:, :, :, :, None] & tensor[:, :, None, None, :]
+    mapping = Mapping.repeat_last_dims(tensor, 1, 3)
+    indexed = tensor[mapping]
+
+    assert result.shape == indexed.shape
+    assert (result.indices == indexed.indices).all()
+    assert indexed.values is None
+
+    indices, _ = randint_sparse((4, 4, 4))
+    tensor = SparseTensor(indices, shape=(4, 4, 4))
+    result = (tensor[:, :, :, None, None] & tensor[:, None, None, :, :])[
+        :, :, :, :, :, None, None
+    ] & tensor[:, None, None, None, None, :, :]
+    mapping = Mapping.repeat_last_dims(tensor, 2, 3)
+    indexed = tensor[mapping]
+
+    assert result.shape == indexed.shape
+    assert (result.indices == indexed.indices).all()
+    assert indexed.values is None

@@ -4,12 +4,15 @@ from typing import Tuple
 import torch
 import torch.nn.functional as F
 
-from .sparse import SparseTensor
+from . import sparse
 
 
 class Mapping:
     def __init__(
-        self, source: SparseTensor, target: SparseTensor, mapping: torch.LongTensor
+        self,
+        source: sparse.SparseTensor,
+        target: sparse.SparseTensor,
+        mapping: torch.LongTensor,
     ):
         self._mapping = mapping
         self._source = source
@@ -29,7 +32,7 @@ class Mapping:
 
     @classmethod
     def repeat_last_dims(
-        cls, source: SparseTensor, ndim: int, repeat: int = 2
+        cls, source: sparse.SparseTensor, ndim: int = 1, repeat: int = 2
     ) -> Mapping:
         boadcasted_indices, mapping = cls._repeat_last_dims(
             source.indices, ndim, repeat
@@ -38,7 +41,7 @@ class Mapping:
         shape = source.shape[:-ndim] + tuple(
             sum([list(source.shape[-ndim:])] * repeat, [])
         )
-        target = SparseTensor(boadcasted_indices, shape=shape, sort=False)
+        target = sparse.SparseTensor(boadcasted_indices, shape=shape, sort=False)
         return cls(source=source, target=target, mapping=mapping)
 
     @classmethod
@@ -82,10 +85,10 @@ class Mapping:
 
         return result_indices, idx_top[0]
 
-    def is_source(self, tensor: SparseTensor) -> bool:
+    def is_source(self, tensor: sparse.SparseTensor) -> bool:
         return id(self._source.indices) == id(tensor.indices)
 
-    def is_target(self, tensor: SparseTensor) -> bool:
+    def is_target(self, tensor: sparse.SparseTensor) -> bool:
         return id(self._target.indices) == id(tensor.indices)
 
     @property

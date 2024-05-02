@@ -1,29 +1,40 @@
-from typing import Literal
+from typing import Literal, Iterable, List
 
 import torch
 
 from .typing import Self
 from .shape import SparseShapeMixin
+from .mapping import Mapping
 
 
 class SparseScatterMixin(SparseShapeMixin):
 
-    def sum(self, dim: int | tuple = None) -> Self:
-        return self.scatter(dim, "sum")
+    def sum(self, reduction: int | tuple | Mapping = None) -> Self:
+        return self.scatter(reduction, "sum")
 
-    def mean(self, dim: int | tuple = None) -> Self:
-        return self.scatter(dim, "mean")
+    def mean(self, reduction: int | tuple | Mapping = None) -> Self:
+        return self.scatter(reduction, "mean")
 
     def scatter(
-        self, dims: int | tuple = None, reduce: Literal["sum", "mean"] = "sum"
+        self,
+        reduction: int | tuple | Mapping = None,
+        reduce: Literal["sum", "mean"] = "sum",
     ) -> Self:
         assert (
-            self.dtype
-            not in (torch.bool, torch.int, torch.int32, torch.int64, torch.long)
-            or reduce != "mean"
+            self.dtype not in (torch.bool, torch.int32, torch.int64) or reduce != "mean"
         ), "Mean reduction can be computed only on real or complex numbers"
 
-        dims = self._dim_to_list(dims)
+        if isinstance(reduction, Mapping):
+            assert reduction.is_target(self)
+
+            dims = range(len(reduction.source_shape), len(reduction.target_shape))
+            values = self._scatter_value(self, reduction.mapping, dims, reduce)
+
+            return self.__class__(
+                reduction.source_indices, values, reduction.source_shape
+            )
+
+        dims = self._dim_to_list(reduction)
         dims = sorted(dims, reverse=True)
 
         if len(dims) == len(self.shape):
@@ -44,9 +55,24 @@ class SparseScatterMixin(SparseShapeMixin):
         )
         indices[:, batch] = sorted_sparse.indices[keeped_dims]
 
-        if self.values is None:
+        values = self._scatter_value(sorted_sparse, batch, dims, reduce)
+
+        shape = tuple(
+            map(lambda x: self.shape[x], set(range(len(self.shape))) - set(dims))
+        )
+        return self.__class__(indices, values, shape)
+
+    @classmethod
+    def _scatter_value(
+        cls,
+        sorted_sparse: Self,
+        batch: torch.LongTensor,
+        dims: Iterable[int],
+        reduce: Literal["sum", "mean"],
+    ) -> torch.Tensor:
+        if sorted_sparse.values is None:
             values = torch.zeros(
-                (indices.shape[1], 1),
+                (batch[-1] + 1, 1),
                 dtype=torch.long,
                 device=sorted_sparse.indices.device,
             ).scatter_add_(
@@ -56,7 +82,7 @@ class SparseScatterMixin(SparseShapeMixin):
             )
         else:
             values = torch.zeros(
-                (indices.shape[1], sorted_sparse.values.shape[1]),
+                (batch[-1] + 1, sorted_sparse.values.shape[1]),
                 dtype=sorted_sparse.values.dtype,
                 device=sorted_sparse.values.device,
             ).scatter_add_(
@@ -66,13 +92,10 @@ class SparseScatterMixin(SparseShapeMixin):
             )
 
         if reduce == "mean":
-            total = self._prod(map(lambda i: self.shape[i], dims))
+            total = cls._prod(map(lambda i: sorted_sparse.shape[i], dims))
             values = values / total
 
-        shape = tuple(
-            map(lambda x: self.shape[x], set(range(len(self.shape))) - set(dims))
-        )
-        return self.__class__(indices, values, shape)
+        return values
 
     def _scatter_all(self, reduce: Literal["sum", "mean"] = "sum") -> Self:
         indices = torch.tensor([[0]], dtype=torch.long, device=self.device)
