@@ -12,7 +12,7 @@ from .assert_sys import assert_no_out_arr
 
 @assert_no_out_arr
 def test_sparse_version():
-    assert __version__ == "0.1.1"
+    assert __version__ == "0.2.0"
 
 
 @assert_no_out_arr

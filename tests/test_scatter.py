@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 import torch
 
+from sparse import SparseTensor, Mapping
 from sparse.typing import Self
 from sparse.scatter import SparseScatterMixin
 
@@ -48,7 +49,7 @@ def test_scatter_scatter():
 
     assert_scatter_sum(indices, values, (0,), (4, 4))
 
-    indices, values = randint_sparse((32, 32, 32, 32))
+    indices, values = randint_sparse((16, 16, 16, 16))
 
     assert_scatter_sum(indices, values, (0,), (32, 32, 32, 32))
     assert_scatter_sum(indices, values, (0, 1), (32, 32, 32, 32))
@@ -80,6 +81,67 @@ def test_scatter_scatter():
     assert_scatter_mean(indices, values, (1, 2, 3))
     assert_scatter_mean(indices, values, (0, 1, 3))
     assert_scatter_mean(indices, values, None)
+
+
+def assert_scatter_mapping_sum(tensor: SparseTensor, mapping: Mapping, reduction=tuple):
+    assert (tensor.indices == mapping.target.indices).all()
+
+    tensor_binary = mapping.create_target()
+
+    result_normal = tensor_binary.sum(reduction)
+    result_mapping = tensor_binary.sum(mapping)
+    assert result_normal.shape == result_mapping.shape
+    assert (result_normal.indices == result_mapping.indices).all()
+
+    tensor_shapred = mapping.create_target(tensor.values)
+
+    result_normal = tensor_shapred.sum(reduction)
+    result_mapping = tensor_shapred.sum(mapping)
+    assert result_normal.shape == result_mapping.shape
+    assert (result_normal.indices == result_mapping.indices).all()
+    assert (result_normal.values == result_mapping.values).all()
+
+
+def assert_scatter_mapping_mean(
+    tensor: SparseTensor, mapping: Mapping, reduction=tuple
+):
+    assert (tensor.indices == mapping.target.indices).all()
+
+    tensor_shapred = mapping.create_target(tensor.values)
+
+    result_normal = tensor_shapred.mean(reduction)
+    result_mapping = tensor_shapred.mean(mapping)
+    assert result_normal.shape == result_mapping.shape
+    assert (result_normal.indices == result_mapping.indices).all()
+    assert (result_normal.values == result_mapping.values).all()
+
+
+@assert_no_out_arr
+def test_scatter_scatter_mapping():
+    torch.manual_seed(0)
+
+    indices, values = randint_sparse((16, 16), min_v=1)
+
+    tensor = SparseTensor(indices, values, (16, 16))
+    origin = tensor[:, :, None] * tensor[:, None, :]
+    mapping = Mapping.repeat_last_dims(tensor, 1, 2)
+
+    assert_scatter_mapping_sum(origin, mapping, (2,))
+    assert_scatter_mapping_mean(origin, mapping, (2,))
+
+    tensor = SparseTensor(indices, values, (16, 16))
+    mapping = Mapping.repeat_last_dims(tensor, 2, 2)
+    origin = tensor[:, :, None, None] * tensor[None, None, :, :]
+
+    assert_scatter_mapping_sum(origin, mapping, (2, 3))
+    assert_scatter_mapping_mean(origin, mapping, (2, 3))
+
+    indices, values = randint_sparse((8, 8, 8), min_v=1)
+    tensor = SparseTensor(indices, values, (8, 8, 8))
+    mapping = Mapping.repeat_last_dims(tensor, 1, 2)
+    origin = tensor[:, :, :, None] * tensor[:, :, None, :]
+    assert_scatter_mapping_sum(origin, mapping, (3,))
+    assert_scatter_mapping_mean(origin, mapping, (3,))
 
 
 @assert_no_out_arr

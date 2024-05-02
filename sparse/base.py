@@ -14,13 +14,18 @@ class BaseSparse:
         shape: tuple = None,
         sort: bool = True,
     ):
-        self.indices = BaseSparse._process_indices(indices, values)
-        self.values = BaseSparse._process_values(values)
+        self._indices = BaseSparse._process_indices(indices, values)
+        self._values = BaseSparse._process_values(values)
         self.__shape = BaseSparse._process_shape(indices, shape)
 
         if sort and (not self._is_sorted()):
             self._sort_by_indices_()
             self._remove_sorted_duplicate_()
+
+    def create_shared(self, values: torch.Tensor | None = None) -> Self:
+        assert values is None or values.shape[0] == self._indices.shape[1]
+
+        return self.__class__(self._indices, values, self.shape, sort=False)
 
     @staticmethod
     def _process_shape(indices: torch.LongTensor, shape: tuple) -> tuple:
@@ -54,6 +59,14 @@ class BaseSparse:
         return values
 
     @property
+    def indices(self) -> torch.LongTensor:
+        return self._indices
+
+    @property
+    def values(self) -> torch.Tensor:
+        return self._values
+
+    @property
     def shape(self) -> tuple:
         return self.__shape
 
@@ -67,57 +80,57 @@ class BaseSparse:
 
     @property
     def dtype(self) -> type:
-        if self.values is None:
+        if self._values is None:
             return torch.bool
 
-        return self.values.dtype
+        return self._values.dtype
 
     @property
     def device(self) -> torch.device:
-        return self.indices.device
+        return self._indices.device
 
     def to(self, device: torch.device) -> Self:
         return self.__class__(
-            indices=self.indices.to(device),
-            values=None if self.values is None else self.values.to(device),
+            indices=self._indices.to(device),
+            values=None if self._values is None else self._values.to(device),
             shape=self.shape,
         )
 
     def clone(self) -> Self:
         return self.__class__(
-            indices=self.indices.clone(),
-            values=None if self.values is None else self.values.clone(),
+            indices=self._indices.clone(),
+            values=None if self._values is None else self._values.clone(),
             shape=self.shape,
         )
 
     def detach(self) -> Self:
         return self.__class__(
-            indices=self.indices.detach(),
-            values=None if self.values is None else self.values.detach(),
+            indices=self._indices.detach(),
+            values=None if self._values is None else self._values.detach(),
             shape=self.shape,
         )
 
     def __repr__(self) -> str:
         return f"""{self.__class__.__name__}(shape={self.shape},
-  indices={self.indices},
-  values={self.values},
+  indices={self._indices},
+  values={self._values},
   device=\"{self.device}\")"""
 
     def to_dense(self) -> torch.Tensor:
-        if self.values is None or self.values.shape[1] == 1:
+        if self._values is None or self._values.shape[1] == 1:
             shape = self.shape
         else:
-            shape = self.shape + self.values.shape[1:]
+            shape = self.shape + self._values.shape[1:]
 
         dense_matrix = torch.zeros(shape, dtype=self.dtype, device=self.device)
-        indices = [self.indices[i] for i in range(self.indices.shape[0])]
+        indices = [self._indices[i] for i in range(self._indices.shape[0])]
 
-        if self.values is None:
+        if self._values is None:
             dense_matrix[indices] = 1
-        elif self.values.shape[1] == 1:
-            dense_matrix[indices] = self.values.flatten()
+        elif self._values.shape[1] == 1:
+            dense_matrix[indices] = self._values.flatten()
         else:
-            dense_matrix[indices] = self.values
+            dense_matrix[indices] = self._values
 
         return dense_matrix
 
@@ -133,7 +146,7 @@ class BaseSparse:
     def index_sorted(self, except_dim: int | Iterable = None) -> torch.LongTensor:
         dims = self._included_dims(except_dim)
 
-        diff = (self.indices[dims, 1:] != self.indices[dims, :-1]).any(dim=0)
+        diff = (self._indices[dims, 1:] != self._indices[dims, :-1]).any(dim=0)
 
         return self._get_ptr(diff)
 
@@ -191,33 +204,35 @@ class BaseSparse:
     def _sort_by_indices_(self, except_dim: int | Iterable = None):
         """Sort indices and values"""
         dims = self._included_dims(except_dim)
-        perm = self._argsort_indices(self.indices, dims)
+        perm = self._argsort_indices(self._indices, dims)
 
         # apply reindexing
-        self.indices = self.indices[:, perm]
+        self._indices = self._indices[:, perm]
 
-        if self.values is not None:
-            self.values = self.values[perm]
+        if self._values is not None:
+            self._values = self._values[perm]
 
     def _remove_sorted_duplicate_(self):
         # pylint: disable=not-callable
         mask = F.pad(
-            (self.indices[:, 1:] != self.indices[:, :-1]).any(dim=0), (1, 0), value=True
+            (self._indices[:, 1:] != self._indices[:, :-1]).any(dim=0),
+            (1, 0),
+            value=True,
         )
 
-        self.indices = self.indices[:, mask]
+        self._indices = self._indices[:, mask]
 
-        if self.values is not None:
+        if self._values is not None:
             batch = self._get_ptr(mask)[:-1, None]
-            self.values = torch.zeros(
-                (batch[-1] + 1, self.values.shape[1]),
-                dtype=self.values.dtype,
-                device=self.values.device,
-            ).scatter_add_(dim=0, index=batch.expand_as(self.values), src=self.values)
+            self._values = torch.zeros(
+                (batch[-1] + 1, self._values.shape[1]),
+                dtype=self._values.dtype,
+                device=self._values.device,
+            ).scatter_add_(dim=0, index=batch.expand_as(self._values), src=self._values)
 
     def _is_sorted(self) -> bool:
-        sorted_mask = self.indices.diff(dim=1) <= 0
-        unsorted_mask = self.indices.diff(dim=1) >= 0
+        sorted_mask = self._indices.diff(dim=1) <= 0
+        unsorted_mask = self._indices.diff(dim=1) >= 0
 
         dims = torch.tensor([self.dims], device=self.device).t()
         dims = dims.repeat(1, sorted_mask.shape[1])

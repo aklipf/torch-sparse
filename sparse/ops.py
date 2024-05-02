@@ -15,7 +15,7 @@ def _intersection_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolT
     return F.pad(mask, (0, n_tensors - 1), value=False)
 
 
-def _union_mask(indices: torch.LongTensor, n_tensors: int) -> torch.BoolTensor:
+def _union_mask(indices: torch.LongTensor, _: int) -> torch.BoolTensor:
     equal = (indices[:, 1:] != indices[:, :-1]).any(dim=0)
     return F.pad(equal, (1, 0), value=True)
 
@@ -252,18 +252,18 @@ class SparseOpsMixin(SparseScatterMixin):
     ) -> Self:
         cart_prod = self._sparse_cart_prod(*indices)
 
-        repeated_dim = cart_prod.repeat_interleave(self.indices.shape[1], dim=1)
-        repeated_indices = self.indices.repeat(1, cart_prod.shape[1])
+        repeated_dim = cart_prod.repeat_interleave(self._indices.shape[1], dim=1)
+        repeated_indices = self._indices.repeat(1, cart_prod.shape[1])
         repeated_indices[list(dims)] = repeated_dim
 
         new_shape = list(self.shape)
         for dim, size in zip(dims, sizes):
             new_shape[dim] = size
 
-        if self.values is None:
+        if self._values is None:
             repeated_values = None
         else:
-            repeated_values = self.values.repeat(cart_prod.shape[1], 1)
+            repeated_values = self._values.repeat(cart_prod.shape[1], 1)
 
         return self.__class__(
             repeated_indices, values=repeated_values, shape=tuple(new_shape)

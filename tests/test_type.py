@@ -23,16 +23,16 @@ def test_type():
     result_indices = MockTensor((2, 12), dtype=torch.long)
     result_values = MockTensor((12, 1), dtype=torch.int)
 
-    sparse.indices.clone = mock.MagicMock("clone", return_value=result_indices)
-    sparse.values.type = mock.MagicMock("type", return_value=result_values)
+    sparse._indices.clone = mock.MagicMock("clone", return_value=result_indices)
+    sparse._values.type = mock.MagicMock("type", return_value=result_values)
 
     result = sparse.type(torch.int)
 
     assert isinstance(result, SparseTypeMixin)
     assert id(result) != id(sparse)
-    assert result.indices == result_indices and result.values == result_values
-    sparse.indices.clone.assert_called_once_with()
-    sparse.values.type.assert_called_once_with(torch.int)
+    assert result._indices == result_indices and result._values == result_values
+    sparse._indices.clone.assert_called_once_with()
+    sparse._values.type.assert_called_once_with(torch.int)
 
 
 @assert_no_out_arr
