@@ -83,14 +83,14 @@ def test_indexing_get_item_mapping():
     assert (result.indices == indexed.indices).all()
     assert indexed.values is None
 
-    indices, _ = randint_sparse((4, 4, 4))
-    tensor = SparseTensor(indices, shape=(4, 4, 4))
-    result = (tensor[:, :, :, None, None] & tensor[:, None, None, :, :])[
+    indices, values = randint_sparse((4, 4, 4))
+    tensor = SparseTensor(indices, torch.ones_like(values), shape=(4, 4, 4))
+    result = (tensor[:, :, :, None, None] * tensor[:, None, None, :, :])[
         :, :, :, :, :, None, None
-    ] & tensor[:, None, None, None, None, :, :]
+    ] * tensor[:, None, None, None, None, :, :]
     mapping = Mapping.repeat_last_dims(tensor, 2, 3)
     indexed = tensor[mapping]
 
     assert result.shape == indexed.shape
     assert (result.indices == indexed.indices).all()
-    assert indexed.values is None
+    assert (result.values == indexed.values).all()

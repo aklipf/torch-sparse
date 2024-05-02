@@ -15,9 +15,7 @@ class SparseIndexingMixin(BaseSparse):
             else:
                 values = self._values[indexing.mapping]
 
-            return self.__class__(
-                indexing.target.indices, values=values, shape=indexing.target.shape
-            )
+            return indexing.create_target(values)
         elif not isinstance(indexing, tuple):
             indexing = (indexing,)
 
