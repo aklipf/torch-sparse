@@ -99,18 +99,18 @@ class SparseScatterMixin(SparseShapeMixin):
         indices = torch.tensor([[0]], dtype=torch.long, device=self.device)
 
         if reduce == "sum":
-            if self.values is None:
-                value = self.indices.shape[1]
+            if self._values is None:
+                value = self._indices.shape[1]
             else:
-                value = self.values.sum().item()
+                value = self._values.sum().item()
 
         elif reduce == "mean":
-            if self.values is None:
-                value = self.indices.shape[1] / self.numel()
+            if self._values is None:
+                value = self._indices.shape[1] / self.numel()
             else:
-                value = self.values.sum().item() / self.numel()
+                value = self._values.sum().item() / self.numel()
 
-        if self.values is None:
+        if self._values is None:
             values = torch.tensor([value], dtype=torch.long, device=self.device)
         else:
             values = torch.tensor([value], dtype=self.dtype, device=self.device)

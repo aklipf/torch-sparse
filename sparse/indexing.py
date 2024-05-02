@@ -10,10 +10,10 @@ class SparseIndexingMixin(BaseSparse):
         if isinstance(indexing, Mapping):
             assert indexing.is_source(self)
 
-            if self.values is None:
+            if self._values is None:
                 values = None
             else:
-                values = self.values[indexing.mapping]
+                values = self._values[indexing.mapping]
 
             return self.__class__(
                 indexing.target.indices, values=values, shape=indexing.target.shape

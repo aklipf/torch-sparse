@@ -14,11 +14,11 @@ class SparseShapeMixin(BaseSparse):
         assert isinstance(dim, int)
 
         insert_zeros = torch.zeros(
-            (1, self.indices.shape[1]), dtype=torch.long, device=self.indices.device
+            (1, self._indices.shape[1]), dtype=torch.long, device=self._indices.device
         )
 
-        self.indices = torch.cat(
-            (self.indices[:dim], insert_zeros, self.indices[dim:]), dim=0
+        self._indices = torch.cat(
+            (self._indices[:dim], insert_zeros, self._indices[dim:]), dim=0
         )
         new_shape = list(self.shape)
         new_shape.insert(dim, 1)
@@ -28,14 +28,14 @@ class SparseShapeMixin(BaseSparse):
 
     def squeeze_(self, dim: int = None) -> Self:
         assert dim is None or isinstance(dim, int)
-        assert dim is None or dim <= self.indices.shape[0] and self.shape[dim] == 1
+        assert dim is None or dim <= self._indices.shape[0] and self.shape[dim] == 1
 
         if dim is None:
             keep_dim = [d for d, n in enumerate(self.shape) if n != 1]
         else:
             keep_dim = [d for d, _ in enumerate(self.shape) if d != dim]
 
-        self.indices = self.indices[keep_dim]
+        self._indices = self._indices[keep_dim]
         self._set_shape_(tuple(map(lambda d: self.shape[d], keep_dim)))
 
         return self
@@ -55,7 +55,7 @@ class SparseShapeMixin(BaseSparse):
     def reshape_(self, shape: int | Iterable[int]) -> Self:
         indices, shape = self._indices_to_shape(shape)
 
-        self.indices = indices
+        self._indices = indices
         self._set_shape_(shape)
 
         return self
@@ -115,7 +115,7 @@ class SparseShapeMixin(BaseSparse):
         in_bases, _ = self._indexing_from_shape(self.shape)
         out_bases, out_shape = self._indexing_from_shape(shape)
 
-        global_index = (self.indices * in_bases[:, None]).sum(dim=0)
+        global_index = (self._indices * in_bases[:, None]).sum(dim=0)
         indices = (global_index[None, :] // out_bases[:, None]) % out_shape[:, None]
 
         return indices, shape

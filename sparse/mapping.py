@@ -20,18 +20,6 @@ class Mapping:
         self._source = source
         self._target = target
 
-    @staticmethod
-    def _count_repeating_indices(
-        indices: torch.LongTensor,
-    ) -> Tuple[torch.LongTensor, torch.LongTensor]:
-        change = F.pad(
-            (indices[:, :-1] != indices[:, 1:]).any(dim=0), (1, 0), value=True
-        )
-        _, count = torch.unique_consecutive(change.cumsum(0), return_counts=True)
-        unique_indices = indices[:, change]
-
-        return unique_indices, count
-
     @classmethod
     def repeat_last_dims(
         cls, source: sparse.SparseTensor, ndim: int = 1, repeat: int = 2
@@ -87,6 +75,18 @@ class Mapping:
 
         return result_indices, idx_top[0]
 
+    @staticmethod
+    def _count_repeating_indices(
+        indices: torch.LongTensor,
+    ) -> Tuple[torch.LongTensor, torch.LongTensor]:
+        change = F.pad(
+            (indices[:, :-1] != indices[:, 1:]).any(dim=0), (1, 0), value=True
+        )
+        _, count = torch.unique_consecutive(change.cumsum(0), return_counts=True)
+        unique_indices = indices[:, change]
+
+        return unique_indices, count
+
     def is_source(self, tensor: sparse.SparseTensor) -> bool:
         return id(self._source.indices) == id(tensor.indices)
 
@@ -94,18 +94,10 @@ class Mapping:
         return id(self._target.indices) == id(tensor.indices)
 
     def create_source(self, values: torch.Tensor | None = None) -> sparse.SparseTensor:
-        assert values is None or values.shape[0] == self._source.indices.shape[1]
-
-        return self._source.__class__(
-            self._source.indices, values, self._source.shape, sort=False
-        )
+        return self._source.create_shared(values)
 
     def create_target(self, values: torch.Tensor | None = None) -> sparse.SparseTensor:
-        assert values is None or values.shape[0] == self._target.indices.shape[1]
-
-        return self._target.__class__(
-            self._target.indices, values, self._target.shape, sort=False
-        )
+        return self._target.create_shared(values)
 
     @property
     def source(self) -> sparse.SparseTensor:
