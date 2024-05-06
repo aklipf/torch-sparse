@@ -21,7 +21,6 @@ def _union_mask(indices: torch.LongTensor, _: int) -> torch.BoolTensor:
 
 
 class SparseOpsMixin(SparseScatterMixin):
-
     def __and__(self, other: Self):
         assert self.dtype == other.dtype == torch.bool
 
@@ -252,18 +251,18 @@ class SparseOpsMixin(SparseScatterMixin):
     ) -> Self:
         cart_prod = self._sparse_cart_prod(*indices)
 
-        repeated_dim = cart_prod.repeat_interleave(self.indices.shape[1], dim=1)
-        repeated_indices = self.indices.repeat(1, cart_prod.shape[1])
+        repeated_dim = cart_prod.repeat_interleave(self._indices.shape[1], dim=1)
+        repeated_indices = self._indices.repeat(1, cart_prod.shape[1])
         repeated_indices[list(dims)] = repeated_dim
 
         new_shape = list(self.shape)
         for dim, size in zip(dims, sizes):
             new_shape[dim] = size
 
-        if self.values is None:
+        if self._values is None:
             repeated_values = None
         else:
-            repeated_values = self.values.repeat(cart_prod.shape[1], 1)
+            repeated_values = self._values.repeat(cart_prod.shape[1], 1)
 
         return self.__class__(
             repeated_indices, values=repeated_values, shape=tuple(new_shape)

@@ -453,11 +453,11 @@ def test_ops_generic_shared_idx_ops():
     result = SparseOpsMixin._generic_shared_idx_ops([tensor1, tensor2])
 
     assert id(result.indices) == id(indices)
-    assert (result.values == torch.tensor([[1, 5], [2, 6], [3, 7], [4, 8]])).all()
+    assert (result._values == torch.tensor([[1, 5], [2, 6], [3, 7], [4, 8]])).all()
 
     result = SparseOpsMixin._generic_shared_idx_ops(
         [tensor1, tensor2], lambda x: x[:, 0] + x[:, 1]
     )
 
     assert id(result.indices) == id(indices)
-    assert (result.values == torch.tensor([[6], [8], [10], [12]])).all()
+    assert (result._values == torch.tensor([[6], [8], [10], [12]])).all()

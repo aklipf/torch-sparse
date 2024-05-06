@@ -22,7 +22,7 @@ def test_base_sort():
 
     tensor = BaseSparse(indices=indices[:, perm])
 
-    assert (tensor.indices == unique).all().item()
+    assert (tensor._indices == unique).all().item()
 
     indices = torch.tensor(
         [
@@ -42,7 +42,7 @@ def test_base_sort():
 
     tensor = BaseSparse(indices=indices[:, perm])
 
-    assert (tensor.indices == unique).all().item()
+    assert (tensor._indices == unique).all().item()
 
 
 @assert_no_out_arr
@@ -59,7 +59,7 @@ def test_base_no_sort():
 
     tensor = BaseSparse(indices=indices[:, perm])
 
-    assert (tensor.indices == indices[:, perm]).all().item()
+    assert (tensor._indices == indices[:, perm]).all().item()
 
 
 @assert_no_out_arr
@@ -70,15 +70,15 @@ def test_base_sort_with_values():
 
     tensor = BaseSparse(indices=indices[:, perm], values=values[perm])
 
-    assert (tensor.indices == indices).all().item()
-    assert (tensor.values.flatten() == values).all().item()
-    assert tensor.values.shape == (12, 1)
+    assert (tensor._indices == indices).all().item()
+    assert (tensor._values.flatten() == values).all().item()
+    assert tensor._values.shape == (12, 1)
 
     tensor = BaseSparse(indices=indices[:, perm], values=values[perm].unsqueeze(1))
 
-    assert (tensor.indices == indices).all().item()
-    assert (tensor.values.flatten() == values).all().item()
-    assert tensor.values.shape == (12, 1)
+    assert (tensor._indices == indices).all().item()
+    assert (tensor._values.flatten() == values).all().item()
+    assert tensor._values.shape == (12, 1)
 
     indices = torch.unique(torch.randperm(128))[:12].unsqueeze(0)
     values = torch.arange(indices.shape[1], dtype=torch.long)[:, None].repeat(1, 4)
@@ -86,9 +86,9 @@ def test_base_sort_with_values():
 
     tensor = BaseSparse(indices=indices[:, perm], values=values[perm])
 
-    assert (tensor.indices == indices).all().item()
-    assert (tensor.values == values).all().item()
-    assert tensor.values.shape == (12, 4)
+    assert (tensor._indices == indices).all().item()
+    assert (tensor._values == values).all().item()
+    assert tensor._values.shape == (12, 4)
 
 
 @assert_no_out_arr
@@ -222,16 +222,16 @@ def test_base_argsort_indices():
     indices = torch.randint(0, 1024, (3, 1024))
     tensor = BaseSparse(indices)
 
-    perm = BaseSparse._argsort_indices(tensor.indices, [0, 2])
-    sorted_indices = (tensor.indices[0, perm] << 10) + tensor.indices[2, perm]
+    perm = BaseSparse._argsort_indices(tensor._indices, [0, 2])
+    sorted_indices = (tensor._indices[0, perm] << 10) + tensor._indices[2, perm]
     assert (sorted_indices.diff() >= 0).all()
 
-    perm = BaseSparse._argsort_indices(tensor.indices, [2])
-    sorted_indices = tensor.indices[2, perm]
+    perm = BaseSparse._argsort_indices(tensor._indices, [2])
+    sorted_indices = tensor._indices[2, perm]
     assert (sorted_indices.diff() >= 0).all()
 
-    perm = BaseSparse._argsort_indices(tensor.indices, [0])
-    sorted_indices = tensor.indices[0, perm]
+    perm = BaseSparse._argsort_indices(tensor._indices, [0])
+    sorted_indices = tensor._indices[0, perm]
     assert (sorted_indices.diff() >= 0).all()
 
 
@@ -243,7 +243,7 @@ def test_base_sort_indices():
 
     tensor._sort_by_indices_()
     sorted_indices = (
-        (tensor.indices[0] << 20) + (tensor.indices[1] << 10) + tensor.indices[2]
+        (tensor._indices[0] << 20) + (tensor._indices[1] << 10) + tensor._indices[2]
     )
     assert (sorted_indices.diff() >= 0).all()
 
@@ -252,7 +252,7 @@ def test_base_sort_indices():
     tensor = BaseSparse(indices.clone(), values.clone())
 
     tensor._sort_by_indices_()
-    assert (values == tensor.values[indices[0]].flatten()).all()
+    assert (values == tensor._values[indices[0]].flatten()).all()
 
 
 @assert_no_out_arr
@@ -360,14 +360,14 @@ def test_base_to_without_values():
     mocked_tensor = BaseSparse(indices=MockTensor(shape=(2, 3), dtype=torch.long))
 
     to_tensor = MockTensor(shape=(2, 3), dtype=torch.long, device="cuda")
-    mocked_tensor.indices.to = mock.MagicMock(name="to", return_value=to_tensor)
+    mocked_tensor._indices.to = mock.MagicMock(name="to", return_value=to_tensor)
 
     result = mocked_tensor.to("cuda")
 
     assert isinstance(result, BaseSparse)
-    assert id(result.indices) == id(to_tensor)
+    assert id(result._indices) == id(to_tensor)
     assert result.device == "cuda"
-    mocked_tensor.indices.to.assert_called_once_with("cuda")
+    mocked_tensor._indices.to.assert_called_once_with("cuda")
 
 
 @assert_no_out_arr
@@ -379,16 +379,16 @@ def test_base_to_with_values():
 
     result_indices = MockTensor(shape=(2, 3), dtype=torch.long)
     result_values = MockTensor(shape=(3, 1))
-    mocked_tensor.indices.to = mock.MagicMock(name="to", return_value=result_indices)
-    mocked_tensor.values.to = mock.MagicMock(name="to", return_value=result_values)
+    mocked_tensor._indices.to = mock.MagicMock(name="to", return_value=result_indices)
+    mocked_tensor._values.to = mock.MagicMock(name="to", return_value=result_values)
 
     result = mocked_tensor.to("cuda")
 
     assert isinstance(result, BaseSparse)
-    assert id(result.indices) == id(result_indices)
-    assert id(result.values) == id(result_values)
-    mocked_tensor.indices.to.assert_called_once_with("cuda")
-    mocked_tensor.values.to.assert_called_once_with("cuda")
+    assert id(result._indices) == id(result_indices)
+    assert id(result._values) == id(result_values)
+    mocked_tensor._indices.to.assert_called_once_with("cuda")
+    mocked_tensor._values.to.assert_called_once_with("cuda")
 
 
 @assert_no_out_arr
@@ -396,14 +396,14 @@ def test_base_clone_without_values():
     mocked_tensor = BaseSparse(indices=MockTensor(shape=(2, 3), dtype=torch.long))
 
     cloned_indices = MockTensor(shape=(2, 3), dtype=torch.long)
-    mocked_tensor.indices.clone = mock.MagicMock(
+    mocked_tensor._indices.clone = mock.MagicMock(
         name="clone", return_value=cloned_indices
     )
 
     result = mocked_tensor.clone()
     assert isinstance(result, BaseSparse)
-    assert id(result.indices) == id(cloned_indices)
-    mocked_tensor.indices.clone.assert_called_once_with()
+    assert id(result._indices) == id(cloned_indices)
+    mocked_tensor._indices.clone.assert_called_once_with()
 
 
 @assert_no_out_arr
@@ -414,20 +414,20 @@ def test_base_clone_with_values():
     )
     result_indices = MockTensor(shape=(2, 3), dtype=torch.long)
     result_values = MockTensor(shape=(3, 1))
-    mocked_tensor.indices.clone = mock.MagicMock(
+    mocked_tensor._indices.clone = mock.MagicMock(
         name="clone", return_value=result_indices
     )
-    mocked_tensor.values.clone = mock.MagicMock(
+    mocked_tensor._values.clone = mock.MagicMock(
         name="clone", return_value=result_values
     )
 
     result = mocked_tensor.clone()
 
     assert isinstance(result, BaseSparse)
-    assert id(result.indices) == id(result_indices)
-    assert id(result.values) == id(result_values)
-    mocked_tensor.indices.clone.assert_called_once_with()
-    mocked_tensor.values.clone.assert_called_once_with()
+    assert id(result._indices) == id(result_indices)
+    assert id(result._values) == id(result_values)
+    mocked_tensor._indices.clone.assert_called_once_with()
+    mocked_tensor._values.clone.assert_called_once_with()
 
 
 @assert_no_out_arr
@@ -435,14 +435,14 @@ def test_base_detach_without_values():
     mocked_tensor = BaseSparse(indices=MockTensor(shape=(2, 3), dtype=torch.long))
 
     result_indices = MockTensor(shape=(2, 3), dtype=torch.long)
-    mocked_tensor.indices.detach = mock.MagicMock(
+    mocked_tensor._indices.detach = mock.MagicMock(
         name="detach", return_value=result_indices
     )
 
     result = mocked_tensor.detach()
     assert isinstance(result, BaseSparse)
-    assert id(result.indices) == id(result_indices)
-    mocked_tensor.indices.detach.assert_called_once_with()
+    assert id(result._indices) == id(result_indices)
+    mocked_tensor._indices.detach.assert_called_once_with()
 
 
 @assert_no_out_arr
@@ -454,20 +454,20 @@ def test_base_detach_with_values():
 
     result_indices = MockTensor(shape=(2, 3), dtype=torch.long)
     result_values = MockTensor(shape=(3, 1))
-    mocked_tensor.indices.detach = mock.MagicMock(
+    mocked_tensor._indices.detach = mock.MagicMock(
         name="detach", return_value=result_indices
     )
-    mocked_tensor.values.detach = mock.MagicMock(
+    mocked_tensor._values.detach = mock.MagicMock(
         name="detach", return_value=result_values
     )
 
     result = mocked_tensor.detach()
 
     assert isinstance(result, BaseSparse)
-    assert id(result.indices) == id(result_indices)
-    assert id(result.values) == id(result_values)
-    mocked_tensor.indices.detach.assert_called_once_with()
-    mocked_tensor.values.detach.assert_called_once_with()
+    assert id(result._indices) == id(result_indices)
+    assert id(result._values) == id(result_values)
+    mocked_tensor._indices.detach.assert_called_once_with()
+    mocked_tensor._values.detach.assert_called_once_with()
 
 
 @assert_no_out_arr

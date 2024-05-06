@@ -22,18 +22,6 @@ class Mapping:
         self._source = source
         self._target = target
 
-    @staticmethod
-    def _count_repeating_indices(
-        indices: torch.LongTensor,
-    ) -> Tuple[torch.LongTensor, torch.LongTensor]:
-        change = F.pad(
-            (indices[:, :-1] != indices[:, 1:]).any(dim=0), (1, 0), value=True
-        )
-        _, count = torch.unique_consecutive(change.cumsum(0), return_counts=True)
-        unique_indices = indices[:, change]
-
-        return unique_indices, count
-
     @classmethod
     def repeat_last_dims(
         cls, source: sparse.SparseTensor, ndim: int = 1, repeat: int = 2
@@ -89,27 +77,37 @@ class Mapping:
 
         return result_indices, idx_top
 
+    @staticmethod
+    def _count_repeating_indices(
+        indices: torch.LongTensor,
+    ) -> Tuple[torch.LongTensor, torch.LongTensor]:
+        change = F.pad(
+            (indices[:, :-1] != indices[:, 1:]).any(dim=0), (1, 0), value=True
+        )
+        _, count = torch.unique_consecutive(change.cumsum(0), return_counts=True)
+        unique_indices = indices[:, change]
+
+        return unique_indices, count
+
     def is_source(self, tensor: sparse.SparseTensor) -> bool:
         return id(self._source.indices) == id(tensor.indices)
 
     def is_target(self, tensor: sparse.SparseTensor) -> bool:
         return id(self._target.indices) == id(tensor.indices)
 
-    @property
-    def source_indices(self) -> torch.LongTensor:
-        return self._source.indices
+    def create_source(self, values: torch.Tensor | None = None) -> sparse.SparseTensor:
+        return self._source.create_shared(values)
+
+    def create_target(self, values: torch.Tensor | None = None) -> sparse.SparseTensor:
+        return self._target.create_shared(values)
 
     @property
-    def target_indices(self) -> torch.LongTensor:
-        return self._target.indices
+    def source(self) -> sparse.SparseTensor:
+        return self._source
 
     @property
-    def source_shape(self) -> tuple:
-        return self._source.shape
-
-    @property
-    def target_shape(self) -> tuple:
-        return self._target.shape
+    def target(self) -> sparse.SparseTensor:
+        return self._target
 
     @property
     def mapping(self) -> torch.LongTensor:

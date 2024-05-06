@@ -2,7 +2,6 @@ from typing import Callable
 
 
 def assert_no_out_arr(fn: Callable) -> Callable:
-
     def sys_check(capsys):
         fn()
 

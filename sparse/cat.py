@@ -8,7 +8,6 @@ from .base import BaseSparse
 
 
 class SparseCatMixin(BaseSparse):
-
     @classmethod
     def cat(cls, sparse_tensors: Iterable[Self], dim: int | tuple = None) -> Self:
         """
@@ -115,7 +114,7 @@ class SparseCatMixin(BaseSparse):
         ptr: torch.LongTensor,
         cat_size: torch.LongTensor,
     ) -> Self:
-        self.indices[dim] += (
+        self._indices[dim] += (
             ptr[: cat_size.shape[0]].repeat_interleave(cat_size, dim=0).t()
         )
 

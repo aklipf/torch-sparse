@@ -87,18 +87,17 @@ def test_scatter_scatter():
 
 
 def assert_scatter_mapping_sum(tensor: SparseTensor, mapping: Mapping, reduction=tuple):
-    assert (tensor.indices == mapping.target_indices).all()
+    assert (tensor.indices == mapping.target.indices).all()
 
-    tensor_binary = SparseTensor(mapping.target_indices, shape=mapping.target_shape)
+    tensor_binary = mapping.create_target()
 
     result_normal = tensor_binary.sum(reduction)
     result_mapping = tensor_binary.sum(mapping)
     assert result_normal.shape == result_mapping.shape
     assert (result_normal.indices == result_mapping.indices).all()
 
-    tensor_shapred = SparseTensor(
-        mapping.target_indices, values=tensor.values, shape=mapping.target_shape
-    )
+    tensor_shapred = mapping.create_target(tensor.values)
+
     result_normal = tensor_shapred.sum(reduction)
     result_mapping = tensor_shapred.sum(mapping)
     assert result_normal.shape == result_mapping.shape
@@ -109,11 +108,10 @@ def assert_scatter_mapping_sum(tensor: SparseTensor, mapping: Mapping, reduction
 def assert_scatter_mapping_mean(
     tensor: SparseTensor, mapping: Mapping, reduction=tuple
 ):
-    assert (tensor.indices == mapping.target_indices).all()
+    assert (tensor.indices == mapping.target.indices).all()
 
-    tensor_shapred = SparseTensor(
-        mapping.target_indices, values=tensor.values, shape=mapping.target_shape
-    )
+    tensor_shapred = mapping.create_target(tensor.values)
+
     result_normal = tensor_shapred.mean(reduction)
     result_mapping = tensor_shapred.mean(mapping)
     assert result_normal.shape == result_mapping.shape

@@ -8,7 +8,6 @@ from .mapping import Mapping
 
 
 class SparseScatterMixin(SparseShapeMixin):
-
     def sum(self, reduction: int | tuple | Mapping = None) -> Self:
         return self.scatter(reduction, "sum")
 
@@ -27,12 +26,10 @@ class SparseScatterMixin(SparseShapeMixin):
         if isinstance(reduction, Mapping):
             assert reduction.is_target(self)
 
-            dims = range(len(reduction.source_shape), len(reduction.target_shape))
+            dims = range(len(reduction.source.shape), len(reduction.target.shape))
             values = self._scatter_value(self, reduction.mapping[0], dims, reduce)
 
-            return self.__class__(
-                reduction.source_indices, values, reduction.source_shape
-            )
+            return reduction.create_source(values)
 
         dims = self._dim_to_list(reduction)
         dims = sorted(dims, reverse=True)
@@ -101,18 +98,15 @@ class SparseScatterMixin(SparseShapeMixin):
         indices = torch.tensor([[0]], dtype=torch.long, device=self.device)
 
         if reduce == "sum":
-            if self.values is None:
-                value = self.indices.shape[1]
+            if self._values is None:
+                value = self._indices.shape[1]
             else:
-                value = self.values.sum().item()
+                value = self._values.sum().item()
 
-        elif reduce == "mean":
-            if self.values is None:
-                value = self.indices.shape[1] / self.numel()
-            else:
-                value = self.values.sum().item() / self.numel()
+        elif reduce == "mean":  # no mean without values (bool type)
+            value = self._values.sum().item() / self.numel()
 
-        if self.values is None:
+        if self._values is None:
             values = torch.tensor([value], dtype=torch.long, device=self.device)
         else:
             values = torch.tensor([value], dtype=self.dtype, device=self.device)

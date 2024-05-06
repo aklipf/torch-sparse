@@ -5,16 +5,15 @@ from .base import BaseSparse
 
 
 class SparseTypeMixin(BaseSparse):
-
     def type(self, dtype: type) -> Self:
-        if self.values is None:
+        if self._values is None:
             raise ValueError(
                 "Cannot convert the type of a sparse tensor without stored values."
             )
 
         return self.__class__(
-            self.indices.clone(),
-            self.values.type(dtype),
+            self._indices.clone(),
+            self._values.type(dtype),
             self.shape,
         )
 

@@ -80,9 +80,9 @@ def test_cat_integration_3d():
 
     dense_result = torch.zeros((12, 9, 15), dtype=torch.int32)
     for i, s in enumerate(sparse_list):
-        dense_result[i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3, i * 5 : (i + 1) * 5] = (
-            s.to_dense()
-        )
+        dense_result[
+            i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3, i * 5 : (i + 1) * 5
+        ] = s.to_dense()
 
     assert (cat_tensor.to_dense() == dense_result).all()
 
@@ -325,8 +325,8 @@ def test_cat_cat_sparse():
     result, cat_size = SparseCatMixin._cat_sparse(sprase_list, (11, 12), "cpu")
 
     assert isinstance(result, SparseCatMixin)
-    assert (result.indices == torch.cat(index_list, dim=1)).all()
-    assert result.values is None
+    assert (result._indices == torch.cat(index_list, dim=1)).all()
+    assert result._values is None
     assert result.shape == (11, 12)
     assert cat_size.tolist() == [indices.shape[1] for indices in index_list]
 
@@ -338,8 +338,8 @@ def test_cat_cat_sparse():
     result, cat_size = SparseCatMixin._cat_sparse(sprase_list, (11, 12), "cpu")
 
     assert isinstance(result, SparseCatMixin)
-    assert (result.indices == torch.cat(index_list, dim=1)).all()
-    assert (result.values == torch.cat(values_list, dim=0)).all()
+    assert (result._indices == torch.cat(index_list, dim=1)).all()
+    assert (result._values == torch.cat(values_list, dim=0)).all()
     assert result.shape == (11, 12)
     assert cat_size.tolist() == [indices.shape[1] for indices in index_list]
 
@@ -364,7 +364,7 @@ def test_cat_reindex_cat_dim():
 
     assert id(result) == id(sparse)
     assert (
-        sparse.indices
+        sparse._indices
         == torch.tensor(
             [
                 [0, 0, 0, 1, 1, 1, 2, 2, 3, 3, 3, 3],
