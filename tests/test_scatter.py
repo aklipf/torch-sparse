@@ -13,7 +13,10 @@ from .assert_sys import assert_no_out_arr
 
 
 def assert_scatter_sum(
-    indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple, shape: tuple
+    indices: torch.LongTensor,
+    values: torch.Tensor,
+    dims: int | tuple | None,
+    shape: tuple,
 ):
     tensor = SparseScatterMixin(indices.clone(), shape=shape)
     assert (tensor.indices == indices).all()
@@ -31,7 +34,7 @@ def assert_scatter_sum(
 
 
 def assert_scatter_mean(
-    indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple
+    indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple | None
 ):
     tensor = SparseScatterMixin(indices.clone(), values.clone(), shape=(32, 32, 32, 32))
     assert (tensor.indices == indices).all()
