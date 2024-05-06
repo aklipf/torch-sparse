@@ -28,7 +28,7 @@ class SparseScatterMixin(SparseShapeMixin):
             assert reduction.is_target(self)
 
             dims = range(len(reduction.source_shape), len(reduction.target_shape))
-            values = self._scatter_value(self, reduction.mapping, dims, reduce)
+            values = self._scatter_value(self, reduction.mapping[0], dims, reduce)
 
             return self.__class__(
                 reduction.source_indices, values, reduction.source_shape

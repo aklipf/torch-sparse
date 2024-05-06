@@ -14,6 +14,10 @@ class Mapping:
         target: sparse.SparseTensor,
         mapping: torch.LongTensor,
     ):
+        assert isinstance(source, sparse.SparseTensor)
+        assert isinstance(target, sparse.SparseTensor)
+        assert mapping.ndim == 2 and mapping.dtype == torch.long
+
         self._mapping = mapping
         self._source = source
         self._target = target
@@ -83,7 +87,7 @@ class Mapping:
         )
         result_indices = torch.cat((repeated_base, repeated_top), dim=0)
 
-        return result_indices, idx_top[0]
+        return result_indices, idx_top
 
     def is_source(self, tensor: sparse.SparseTensor) -> bool:
         return id(self._source.indices) == id(tensor.indices)
