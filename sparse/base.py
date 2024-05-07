@@ -110,6 +110,22 @@ class BaseSparse:
             shape=self.shape,
         )
 
+    @classmethod
+    def join(cls, *tensors: Self) -> Self:
+        assert len(tensors) > 1
+        first_tensor, *_ = tensors
+        assert all(
+            map(
+                lambda tensor: id(tensor.indices) == id(first_tensor.indices),
+                tensors[1:],
+            )
+        )
+
+        values = torch.cat([tensor.values for tensor in tensors], dim=1)
+        return cls(
+            indices=first_tensor.indices, values=values, shape=first_tensor.shape
+        )
+
     def __repr__(self) -> str:
         return f"""{self.__class__.__name__}(shape={self.shape},
   indices={self._indices},
