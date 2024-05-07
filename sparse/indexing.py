@@ -12,7 +12,7 @@ class SparseIndexingMixin(BaseSparse):
             if self._values is None:
                 values = None
             else:
-                values = self._values[indexing.mapping[0]]
+                values = self._values[indexing.batch]
 
             return indexing.create_target(values)
         elif not isinstance(indexing, tuple):

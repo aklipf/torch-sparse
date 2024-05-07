@@ -8,19 +8,35 @@ from . import sparse
 
 
 class Mapping:
+    class Selector:
+        def __init__(self, mapping: Mapping, idx: int):
+            assert -len(mapping) < idx < len(mapping)
+            self.mapping = mapping
+            self.idx = idx
+
+        @property
+        def batch(self) -> torch.LongTensor:
+            return self.mapping._batch[self.idx]
+
     def __init__(
         self,
         source: sparse.SparseTensor,
         target: sparse.SparseTensor,
-        mapping: torch.LongTensor,
+        batch: torch.LongTensor,
     ):
         assert isinstance(source, sparse.SparseTensor)
         assert isinstance(target, sparse.SparseTensor)
-        assert mapping.ndim == 2 and mapping.dtype == torch.long
+        assert batch.ndim == 2 and batch.dtype == torch.long
 
-        self._mapping = mapping
+        self._batch = batch
         self._source = source
         self._target = target
+
+    def __len__(self) -> int:
+        return self._batch.shape[0]
+
+    def __getitem__(self, idx: int) -> Mapping.Selector:
+        return Mapping.Selector(self, idx)
 
     @classmethod
     def repeat_last_dims(
@@ -34,7 +50,7 @@ class Mapping:
             sum([list(source.shape[-ndim:])] * repeat, [])
         )
         target = sparse.SparseTensor(boadcasted_indices, shape=shape, sort=False)
-        return cls(source=source, target=target, mapping=mapping)
+        return cls(source=source, target=target, batch=mapping)
 
     @classmethod
     def _repeat_last_dims(
@@ -110,5 +126,5 @@ class Mapping:
         return self._target
 
     @property
-    def mapping(self) -> torch.LongTensor:
-        return self._mapping
+    def batch(self) -> torch.LongTensor:
+        return self._batch[0]
