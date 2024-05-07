@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple
+from typing import Tuple, Any
 
 import torch
 import torch.nn.functional as F
@@ -14,25 +14,15 @@ class Mapping:
             self.mapping = mapping
             self.idx = idx
 
+        def __getattr__(self, name: str) -> Any:
+            if hasattr(self.mapping, name):
+                return getattr(self.mapping, name)
+
+            raise AttributeError(self, name)
+
         @property
         def batch(self) -> torch.LongTensor:
             return self.mapping._batch[self.idx]
-
-        def is_source(self, tensor: sparse.SparseTensor) -> bool:
-            return self.mapping.is_source(tensor)
-
-        def is_target(self, tensor: sparse.SparseTensor) -> bool:
-            return self.mapping.is_target(tensor)
-
-        def create_source(
-            self, values: torch.Tensor | None = None
-        ) -> sparse.SparseTensor:
-            return self.mapping.create_source(values)
-
-        def create_target(
-            self, values: torch.Tensor | None = None
-        ) -> sparse.SparseTensor:
-            return self.mapping.create_target(values)
 
     def __init__(
         self,
