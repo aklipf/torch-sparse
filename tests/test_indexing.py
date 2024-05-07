@@ -52,7 +52,16 @@ def test_indexing_get_item():
 def test_indexing_get_item_mapping():
     torch.manual_seed(2)
 
-    indices, _ = randint_sparse((16, 16))
+    indices, values = randint_sparse((4,), ratio=0.8)
+    tensor = SparseTensor(indices, values, shape=(4,))
+    mapping = Mapping.repeat_last_dims(tensor, 1, 2)
+
+    assert (
+        -(tensor[mapping[0]] - tensor[mapping[1]]).to_dense()
+        == (tensor[mapping[1]] - tensor[mapping[0]]).to_dense()
+    ).all()
+
+    indices, values = randint_sparse((16, 16))
     tensor = SparseTensor(indices, shape=(16, 16))
     result = tensor[:, :, None] & tensor[:, None, :]
     mapping = Mapping.repeat_last_dims(tensor, 1, 2)
@@ -62,7 +71,14 @@ def test_indexing_get_item_mapping():
     assert (result.indices == indexed.indices).all()
     assert indexed.values is None
 
-    indices, _ = randint_sparse((16, 16, 16))
+    tensor = SparseTensor(indices, values, shape=(16, 16))
+
+    assert (
+        -(tensor[mapping[0]] - tensor[mapping[1]]).to_dense()
+        == (tensor[mapping[1]] - tensor[mapping[0]]).to_dense()
+    ).all()
+
+    indices, values = randint_sparse((16, 16, 16))
     tensor = SparseTensor(indices, shape=(16, 16, 16))
     result = tensor[:, :, :, None, None] & tensor[:, None, None, :, :]
     mapping = Mapping.repeat_last_dims(tensor, 2, 2)
@@ -71,6 +87,16 @@ def test_indexing_get_item_mapping():
     assert result.shape == indexed.shape
     assert (result.indices == indexed.indices).all()
     assert indexed.values is None
+
+    tensor = SparseTensor(indices, values, shape=(16, 16, 16))
+
+    assert (
+        (tensor[mapping[0]] - tensor[mapping[1]])
+        .to_dense()
+        .swapdims(1, 3)
+        .swapdims(2, 4)
+        == (tensor[mapping[1]] - tensor[mapping[0]]).to_dense()
+    ).all()
 
     indices, _ = randint_sparse((4, 4, 4))
     tensor = SparseTensor(indices, shape=(4, 4, 4))

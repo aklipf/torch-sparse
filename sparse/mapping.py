@@ -18,6 +18,22 @@ class Mapping:
         def batch(self) -> torch.LongTensor:
             return self.mapping._batch[self.idx]
 
+        def is_source(self, tensor: sparse.SparseTensor) -> bool:
+            return self.mapping.is_source(tensor)
+
+        def is_target(self, tensor: sparse.SparseTensor) -> bool:
+            return self.mapping.is_target(tensor)
+
+        def create_source(
+            self, values: torch.Tensor | None = None
+        ) -> sparse.SparseTensor:
+            return self.mapping.create_source(values)
+
+        def create_target(
+            self, values: torch.Tensor | None = None
+        ) -> sparse.SparseTensor:
+            return self.mapping.create_target(values)
+
     def __init__(
         self,
         source: sparse.SparseTensor,
