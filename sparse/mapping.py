@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple
+from typing import Tuple, Any
 
 import torch
 import torch.nn.functional as F
@@ -8,17 +8,41 @@ from . import sparse
 
 
 class Mapping:
+    class Selector:
+        def __init__(self, mapping: Mapping, idx: int):
+            assert -len(mapping) < idx < len(mapping)
+            self.mapping = mapping
+            self.idx = idx
+
+        def __getattr__(self, name: str) -> Any:
+            if hasattr(self.mapping, name):
+                return getattr(self.mapping, name)
+
+            raise AttributeError(self, name)
+
+        @property
+        def batch(self) -> torch.LongTensor:
+            return self.mapping._batch[self.idx]
+
     def __init__(
         self,
         source: sparse.SparseTensor,
         target: sparse.SparseTensor,
-        mapping: torch.LongTensor,
+        batch: torch.LongTensor,
     ):
-        assert tuple(mapping.shape) == (target.indices.shape[1],)
+        assert isinstance(source, sparse.SparseTensor)
+        assert isinstance(target, sparse.SparseTensor)
+        assert batch.ndim == 2 and batch.dtype == torch.long
 
-        self._mapping = mapping
+        self._batch = batch
         self._source = source
         self._target = target
+
+    def __len__(self) -> int:
+        return self._batch.shape[0]
+
+    def __getitem__(self, idx: int) -> Mapping.Selector:
+        return Mapping.Selector(self, idx)
 
     @classmethod
     def repeat_last_dims(
@@ -32,7 +56,7 @@ class Mapping:
             sum([list(source.shape[-ndim:])] * repeat, [])
         )
         target = sparse.SparseTensor(boadcasted_indices, shape=shape, sort=False)
-        return cls(source=source, target=target, mapping=mapping)
+        return cls(source=source, target=target, batch=mapping)
 
     @classmethod
     def _repeat_last_dims(
@@ -73,7 +97,7 @@ class Mapping:
         )
         result_indices = torch.cat((repeated_base, repeated_top), dim=0)
 
-        return result_indices, idx_top[0]
+        return result_indices, idx_top
 
     @staticmethod
     def _count_repeating_indices(
@@ -108,5 +132,5 @@ class Mapping:
         return self._target
 
     @property
-    def mapping(self) -> torch.LongTensor:
-        return self._mapping
+    def batch(self) -> torch.LongTensor:
+        return self._batch[0]

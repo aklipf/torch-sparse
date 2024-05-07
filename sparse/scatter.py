@@ -8,27 +8,26 @@ from .mapping import Mapping
 
 
 class SparseScatterMixin(SparseShapeMixin):
-
-    def sum(self, reduction: int | tuple | Mapping = None) -> Self:
+    def sum(self, reduction: int | tuple | Mapping | Mapping.Selector = None) -> Self:
         return self.scatter(reduction, "sum")
 
-    def mean(self, reduction: int | tuple | Mapping = None) -> Self:
+    def mean(self, reduction: int | tuple | Mapping | Mapping.Selector = None) -> Self:
         return self.scatter(reduction, "mean")
 
     def scatter(
         self,
-        reduction: int | tuple | Mapping = None,
+        reduction: int | tuple | Mapping | Mapping.Selector = None,
         reduce: Literal["sum", "mean"] = "sum",
     ) -> Self:
         assert (
             self.dtype not in (torch.bool, torch.int32, torch.int64) or reduce != "mean"
         ), "Mean reduction can be computed only on real or complex numbers"
 
-        if isinstance(reduction, Mapping):
+        if isinstance(reduction, (Mapping, Mapping.Selector)):
             assert reduction.is_target(self)
 
             dims = range(len(reduction.source.shape), len(reduction.target.shape))
-            values = self._scatter_value(self, reduction.mapping, dims, reduce)
+            values = self._scatter_value(self, reduction.batch, dims, reduce)
 
             return reduction.create_source(values)
 

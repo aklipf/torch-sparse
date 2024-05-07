@@ -8,7 +8,6 @@ from .base import BaseSparse
 
 
 class SparseCatMixin(BaseSparse):
-
     @classmethod
     def cat(cls, sparse_tensors: Iterable[Self], dim: int | tuple = None) -> Self:
         """

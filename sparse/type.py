@@ -5,7 +5,6 @@ from .base import BaseSparse
 
 
 class SparseTypeMixin(BaseSparse):
-
     def type(self, dtype: type) -> Self:
         if self._values is None:
             raise ValueError(

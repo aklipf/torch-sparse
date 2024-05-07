@@ -80,9 +80,9 @@ def test_cat_integration_3d():
 
     dense_result = torch.zeros((12, 9, 15), dtype=torch.int32)
     for i, s in enumerate(sparse_list):
-        dense_result[i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3, i * 5 : (i + 1) * 5] = (
-            s.to_dense()
-        )
+        dense_result[
+            i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3, i * 5 : (i + 1) * 5
+        ] = s.to_dense()
 
     assert (cat_tensor.to_dense() == dense_result).all()
 

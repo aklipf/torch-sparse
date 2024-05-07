@@ -5,7 +5,6 @@ from .base import BaseSparse
 
 
 class SparseMaskMixin(BaseSparse):
-
     def mask_(self, mask: torch.BoolTensor) -> Self:
         assert mask.ndim == 1 and mask.shape[0] == self._indices.shape[1]
 

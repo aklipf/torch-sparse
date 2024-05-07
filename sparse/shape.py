@@ -9,7 +9,6 @@ from .base import BaseSparse
 
 
 class SparseShapeMixin(BaseSparse):
-
     def unsqueeze_(self, dim: int) -> Self:
         assert isinstance(dim, int)
 

@@ -1,5 +1,8 @@
 import torch
 from sparse import SparseTensor, Mapping
+import pytest
+
+from unittest import mock
 
 from .assert_sys import assert_no_out_arr
 from .mock_tensor import MockTensor
@@ -39,9 +42,12 @@ def test_mapping_repeat_last_dims():
         )
     ).all()
     assert (
-        mapping_test.mapping
+        mapping_test._batch
         == torch.tensor(
-            [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8]
+            [
+                [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 5, 6, 6, 6, 7, 7, 7, 8],
+                [0, 1, 2, 0, 1, 2, 0, 1, 2, 3, 4, 3, 4, 5, 6, 7, 5, 6, 7, 5, 6, 7, 8],
+            ]
         )
     ).all()
 
@@ -58,7 +64,7 @@ def test_mapping_create_from():
     target = SparseTensor(
         MockTensor((5, 128), dtype=torch.long), shape=(1024, 1024, 1024, 1024, 1024)
     )
-    batch = MockTensor((128,), dtype=torch.long)
+    batch = MockTensor((1, 128), dtype=torch.long)
     mapping = Mapping(source, target, batch)
 
     values_source = MockTensor((32, 256))
@@ -97,8 +103,8 @@ def test_mapping_is():
     target = SparseTensor(
         MockTensor((5, 32), dtype=torch.long), shape=(128, 128, 128, 128, 128)
     )
-    batch = MockTensor((32,), dtype=torch.long)
-    mapping = Mapping(source=source, target=target, mapping=batch)
+    batch = MockTensor((1, 32), dtype=torch.long)
+    mapping = Mapping(source=source, target=target, batch=batch)
 
     assert mapping.is_source(source)
     assert not mapping.is_source(target)
@@ -110,4 +116,40 @@ def test_mapping_is():
     assert mapping.source.shape == (128, 128, 128)
     assert id(mapping.target.indices) == id(target.indices)
     assert mapping.target.shape == (128, 128, 128, 128, 128)
-    assert id(mapping.mapping) == id(batch)
+    assert id(mapping._batch) == id(batch)
+
+
+@assert_no_out_arr
+def test_mapping_selector():
+    source = SparseTensor(MockTensor((3, 8), dtype=torch.long), shape=(4, 4, 4))
+    target = SparseTensor(MockTensor((5, 32), dtype=torch.long), shape=(4, 4, 4, 4, 4))
+    batch = MockTensor((3, 32), dtype=torch.long)
+    mapping = Mapping(source, target, batch)
+
+    assert len(mapping) == 3
+
+    with mock.patch("sparse.Mapping.Selector", autospec=True) as mock_selector:
+        mapping[0]
+        mock_selector.assert_called_once_with(mapping, 0)
+
+    with mock.patch("sparse.Mapping.Selector", autospec=True) as mock_selector:
+        mapping[2]
+        mock_selector.assert_called_once_with(mapping, 2)
+
+    with mock.patch("tests.mock_tensor.MockTensor.__getitem__") as mock_getitem:
+        Mapping.Selector(mapping, 0).batch
+        mock_getitem.assert_called_once_with(0)
+
+    with mock.patch("tests.mock_tensor.MockTensor.__getitem__") as mock_getitem:
+        Mapping.Selector(mapping, 1).batch
+        mock_getitem.assert_called_once_with(1)
+
+    with mock.patch("tests.mock_tensor.MockTensor.__getitem__") as mock_getitem:
+        Mapping.Selector(mapping, -1).batch
+        mock_getitem.assert_called_once_with(-1)
+
+    with pytest.raises(AssertionError):
+        Mapping.Selector(mapping, -3).batch
+
+    with pytest.raises(AssertionError):
+        Mapping.Selector(mapping, 3).batch

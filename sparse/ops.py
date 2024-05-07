@@ -21,7 +21,6 @@ def _union_mask(indices: torch.LongTensor, _: int) -> torch.BoolTensor:
 
 
 class SparseOpsMixin(SparseScatterMixin):
-
     def __and__(self, other: Self):
         assert self.dtype == other.dtype == torch.bool
 
@@ -235,7 +234,7 @@ class SparseOpsMixin(SparseScatterMixin):
 
         brodcasted_tensors = []
         for tensor in tensors:
-            filtered_args = list(filter(lambda x: tensor.shape[x[1]] == 1, broadcast))
+            filtered_args = [(idx,dim,shape) for idx,dim,shape in broadcast if tensor.shape[dim] == 1]
 
             if len(filtered_args) == 0:
                 brodcasted_tensors.append(tensor)

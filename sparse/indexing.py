@@ -5,15 +5,16 @@ from .mapping import Mapping
 
 
 class SparseIndexingMixin(BaseSparse):
-
-    def __getitem__(self, indexing: Iterable[slice | None] | Mapping):
-        if isinstance(indexing, Mapping):
+    def __getitem__(
+        self, indexing: Iterable[slice | None] | Mapping | Mapping.Selector
+    ):
+        if isinstance(indexing, (Mapping, Mapping.Selector)):
             assert indexing.is_source(self)
 
             if self._values is None:
                 values = None
             else:
-                values = self._values[indexing.mapping]
+                values = self._values[indexing.batch]
 
             return indexing.create_target(values)
         elif not isinstance(indexing, tuple):

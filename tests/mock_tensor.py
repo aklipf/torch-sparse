@@ -1,3 +1,4 @@
+from __future__ import annotations
 import torch
 
 
@@ -17,6 +18,25 @@ class MockTensor:
     @property
     def ndim(self):
         return len(self.shape)
+
+    def __getitem__(self, *args) -> MockTensor:
+        out_shape = []
+        in_shape = list(self.shape)
+
+        for arg in args:
+            if arg is None:
+                out_shape.append(1)
+            elif isinstance(arg, int):
+                in_shape.pop(0)
+            elif isinstance(arg, (list, tuple, torch.Tensor)):
+                in_shape.pop(0)
+                out_shape.append(len(arg))
+            else:
+                raise NotImplementedError
+
+        out_shape.extend(in_shape)
+
+        return MockTensor(shape=tuple(out_shape), dtype=self.dtype, device=self.device)
 
     def amax(self, **_) -> torch.LongTensor:
         return torch.ones(self.shape[0], dtype=torch.long)

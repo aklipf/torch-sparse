@@ -13,7 +13,10 @@ from .assert_sys import assert_no_out_arr
 
 
 def assert_scatter_sum(
-    indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple, shape: tuple
+    indices: torch.LongTensor,
+    values: torch.Tensor,
+    dims: int | tuple | None,
+    shape: tuple,
 ):
     tensor = SparseScatterMixin(indices.clone(), shape=shape)
     assert (tensor.indices == indices).all()
@@ -31,7 +34,7 @@ def assert_scatter_sum(
 
 
 def assert_scatter_mean(
-    indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple
+    indices: torch.LongTensor, values: torch.Tensor, dims: int | tuple | None
 ):
     tensor = SparseScatterMixin(indices.clone(), values.clone(), shape=(32, 32, 32, 32))
     assert (tensor.indices == indices).all()
@@ -83,7 +86,9 @@ def test_scatter_scatter():
     assert_scatter_mean(indices, values, None)
 
 
-def assert_scatter_mapping_sum(tensor: SparseTensor, mapping: Mapping, reduction=tuple):
+def assert_scatter_mapping_sum(
+    tensor: SparseTensor, mapping: Mapping | Mapping.Selector, reduction=tuple
+):
     assert (tensor.indices == mapping.target.indices).all()
 
     tensor_binary = mapping.create_target()
@@ -103,7 +108,7 @@ def assert_scatter_mapping_sum(tensor: SparseTensor, mapping: Mapping, reduction
 
 
 def assert_scatter_mapping_mean(
-    tensor: SparseTensor, mapping: Mapping, reduction=tuple
+    tensor: SparseTensor, mapping: Mapping | Mapping.Selector, reduction=tuple
 ):
     assert (tensor.indices == mapping.target.indices).all()
 
@@ -139,9 +144,15 @@ def test_scatter_scatter_mapping():
     indices, values = randint_sparse((8, 8, 8), min_v=1)
     tensor = SparseTensor(indices, values, (8, 8, 8))
     mapping = Mapping.repeat_last_dims(tensor, 1, 2)
-    origin = tensor[:, :, :, None] * tensor[:, :, None, :]
-    assert_scatter_mapping_sum(origin, mapping, (3,))
-    assert_scatter_mapping_mean(origin, mapping, (3,))
+    assert_scatter_mapping_sum(tensor[mapping[0]], mapping[0], (3,))
+    assert_scatter_mapping_sum(tensor[mapping[0]], mapping[1], (2,))
+    assert_scatter_mapping_sum(tensor[mapping[1]], mapping[0], (3,))
+    assert_scatter_mapping_sum(tensor[mapping[1]], mapping[1], (2,))
+
+    assert_scatter_mapping_mean(tensor[mapping[0]], mapping[0], (3,))
+    assert_scatter_mapping_mean(tensor[mapping[0]], mapping[1], (2,))
+    assert_scatter_mapping_mean(tensor[mapping[1]], mapping[0], (3,))
+    assert_scatter_mapping_mean(tensor[mapping[1]], mapping[1], (2,))
 
 
 @assert_no_out_arr
