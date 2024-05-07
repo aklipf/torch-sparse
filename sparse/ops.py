@@ -52,6 +52,11 @@ class SparseOpsMixin(SparseScatterMixin):
             [self, other], _union_mask, lambda x: x[:, 0] - x[:, 1]
         )
 
+    def __neg__(self):
+        assert self.dtype != torch.bool
+
+        return self.__class__(self._indices, values=-self._values, shape=self.shape)
+
     @classmethod
     def _generic_ops(
         cls,
@@ -234,7 +239,11 @@ class SparseOpsMixin(SparseScatterMixin):
 
         brodcasted_tensors = []
         for tensor in tensors:
-            filtered_args = [(idx,dim,shape) for idx,dim,shape in broadcast if tensor.shape[dim] == 1]
+            filtered_args = [
+                (idx, dim, shape)
+                for idx, dim, shape in broadcast
+                if tensor.shape[dim] == 1
+            ]
 
             if len(filtered_args) == 0:
                 brodcasted_tensors.append(tensor)
