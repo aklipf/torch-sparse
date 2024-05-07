@@ -111,6 +111,13 @@ def test_ops_sub():
 
 
 @assert_no_out_arr
+def test_ops_neg():
+    assert ((-a).to_dense() == -a.to_dense()).all()
+    assert ((-b).to_dense() == -b.to_dense()).all()
+    assert ((-c).to_dense() == -c.to_dense()).all()
+
+
+@assert_no_out_arr
 def test_ops_sparse_cart_prod():
     with pytest.raises(
         AssertionError, match="No input tensor, can't calculate the cartesian product"

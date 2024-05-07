@@ -510,3 +510,50 @@ def test_base_to_dense():
             ]
         )
     ).all()
+
+
+@assert_no_out_arr
+@mock.patch("sparse.base.BaseSparse._is_sorted", mock.MagicMock(return_value=True))
+def test_base_join():
+    indices = torch.tensor(
+        [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+            [0, 0, 1, 1, 1, 2, 2, 2, 2, 3, 3, 4, 5, 5, 6],
+            [0, 2, 1, 3, 3, 2, 2, 2, 4, 3, 5, 4, 5, 5, 6],
+        ]
+    )
+    values = torch.randint(-32, 32, (indices.shape[1], 7))
+
+    tensor1 = BaseSparse(indices, values[:, [0]], shape=(2, 8, 8))
+    tensor2 = BaseSparse(indices, values[:, 1], shape=(2, 8, 8))
+    tensor3 = BaseSparse(indices, values[:, 2:5], shape=(2, 8, 8))
+    tensor4 = BaseSparse(indices, values[:, 5:], shape=(2, 8, 8))
+    tensor_alt = BaseSparse(indices.clone(), values[:, [0]], shape=(2, 8, 8))
+
+    with pytest.raises(AssertionError):
+        BaseSparse.join()
+
+    with pytest.raises(AssertionError):
+        BaseSparse.join(tensor1)
+
+    with pytest.raises(AssertionError):
+        BaseSparse.join(tensor1, tensor_alt)
+
+    with pytest.raises(AssertionError):
+        BaseSparse.join(tensor1, tensor2, tensor_alt)
+
+    result = BaseSparse.join(tensor1, tensor2, tensor3, tensor4)
+    assert id(result.indices) == id(indices)
+    assert (result.values == values).all()
+
+    result = BaseSparse.join(tensor1, tensor2)
+    assert id(result.indices) == id(indices)
+    assert (result.values == values[:, :2]).all()
+
+    result = BaseSparse.join(tensor1, tensor3)
+    assert id(result.indices) == id(indices)
+    assert (result.values == values[:, [0, 2, 3, 4]]).all()
+
+    result = BaseSparse.join(tensor3, tensor4)
+    assert id(result.indices) == id(indices)
+    assert (result.values == values[:, 2:]).all()
