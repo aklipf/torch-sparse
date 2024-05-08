@@ -589,3 +589,38 @@ def test_base_join():
     result = BaseSparse.join(tensor3, tensor4)
     assert id(result.indices) == id(indices)
     assert (result.values == values[:, 2:]).all()
+
+
+@assert_no_out_arr
+def test_base_empty():
+    zeros_tensor = BaseSparse(torch.zeros((2, 0), dtype=torch.long), shape=(4, 4))
+
+    assert (zeros_tensor.to_dense() == torch.zeros(4, 4)).all()
+
+    zeros_tensor = BaseSparse(
+        torch.zeros((2, 0), dtype=torch.long),
+        torch.zeros((0, 16), dtype=torch.long),
+        shape=(3, 3),
+    )
+
+    assert (zeros_tensor.to_dense() == torch.zeros(3, 3, 16)).all()
+
+    zeros_tensor = BaseSparse.zeros((3, 3), dtype=torch.long, size=16)
+
+    assert zeros_tensor.dtype == torch.long
+    assert (zeros_tensor.to_dense() == torch.zeros(3, 3, 16)).all()
+
+    zeros_tensor = BaseSparse.zeros((3, 3))
+
+    assert zeros_tensor.dtype == torch.bool
+    assert (zeros_tensor.to_dense() == torch.zeros(3, 3)).all()
+
+    zeros_tensor = BaseSparse.zeros((3, 3), dtype=torch.float32)
+
+    assert zeros_tensor.dtype == torch.float32
+    assert (zeros_tensor.to_dense() == torch.zeros(3, 3)).all()
+
+    assert (zeros_tensor.index_sorted() == torch.tensor([0])).all()
+    assert zeros_tensor._is_sorted()
+    zeros_tensor._remove_sorted_duplicate_()
+    zeros_tensor._sort_by_indices_()

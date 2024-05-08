@@ -2,6 +2,7 @@ from typing import Iterable, List
 
 import torch
 import torch.nn.functional as F
+import torch.types
 
 from .typing import Self
 
@@ -57,6 +58,25 @@ class BaseSparse:
         assert indices.device == values.device
 
         return values
+
+    @classmethod
+    def zeros(
+        cls,
+        shape: tuple,
+        dtype: torch.types.Number = torch.bool,
+        size: int = 1,
+        device: torch.device = None,
+    ):
+        if dtype != torch.long or size > 1:
+            values = torch.empty((0, size), dtype=dtype, device=device)
+        else:
+            values = None
+
+        return cls(
+            torch.empty((len(shape), 0), dtype=torch.long, device=device),
+            values=values,
+            shape=shape,
+        )
 
     @property
     def indices(self) -> torch.LongTensor:
@@ -234,6 +254,9 @@ class BaseSparse:
         return src[tuple(missing_dims)].expand_as(target)
 
     def _remove_sorted_duplicate_(self):
+        if self._indices.shape[1] == 0:
+            return
+
         # pylint: disable=not-callable
         mask = F.pad(
             (self._indices[:, 1:] != self._indices[:, :-1]).any(dim=0),
