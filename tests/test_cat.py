@@ -80,9 +80,9 @@ def test_cat_integration_3d():
 
     dense_result = torch.zeros((12, 9, 15), dtype=torch.int32)
     for i, s in enumerate(sparse_list):
-        dense_result[
-            i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3, i * 5 : (i + 1) * 5
-        ] = s.to_dense()
+        dense_result[i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3, i * 5 : (i + 1) * 5] = (
+            s.to_dense()
+        )
 
     assert (cat_tensor.to_dense() == dense_result).all()
 
@@ -373,3 +373,25 @@ def test_cat_reindex_cat_dim():
             dtype=torch.long,
         )
     ).all()
+
+
+@assert_no_out_arr
+def test_cat_empty():
+    torch.manual_seed(0)
+    random = [randint_sparse((4, 3), ratio=0.5) for _ in range(3)]
+    sparse_list = [SparseCatMixin(i, v.int(), shape=(4, 3)) for i, v in random]
+    sparse_list.append(
+        SparseCatMixin(
+            torch.empty((2, 0), dtype=torch.long),
+            torch.empty((0,), dtype=torch.int),
+            shape=(4, 3),
+        )
+    )
+
+    cat_tensor = SparseCatMixin.cat(sparse_list, dim=(0, 1))
+
+    dense_result = torch.zeros((16, 12), dtype=torch.int32)
+    for i, s in enumerate(sparse_list[:-1]):
+        dense_result[i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3] = s.to_dense()
+
+    assert (cat_tensor.to_dense() == dense_result).all()
