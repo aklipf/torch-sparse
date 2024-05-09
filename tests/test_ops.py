@@ -74,6 +74,19 @@ def test_ops_union_mask():
 
 
 @assert_no_out_arr
+def test_ops_apply():
+    assert (
+        a.apply(torch.pow, exponent=2).values == torch.pow(a.values, exponent=2)
+    ).all()
+    assert (
+        b.apply(torch.pow, exponent=2).values == torch.pow(b.values, exponent=2)
+    ).all()
+    assert (
+        c.apply(torch.pow, exponent=2).values == torch.pow(c.values, exponent=2)
+    ).all()
+
+
+@assert_no_out_arr
 def test_ops_and():  # TODO: check multiple dimension
     assert (
         (a_bool & b_bool & c_bool).to_dense()

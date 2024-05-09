@@ -21,6 +21,11 @@ def _union_mask(indices: torch.LongTensor, _: int) -> torch.BoolTensor:
 
 
 class SparseOpsMixin(SparseScatterMixin):
+    def apply(
+        self, fn: Callable[[torch.Tensor], torch.Tensor], *kargs, **kwargs
+    ) -> Self:
+        return self.create_shared(fn(self._values, *kargs, **kwargs))
+
     def __and__(self, other: Self):
         assert isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool
 
