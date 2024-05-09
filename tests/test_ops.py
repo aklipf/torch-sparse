@@ -74,6 +74,19 @@ def test_ops_union_mask():
 
 
 @assert_no_out_arr
+def test_ops_apply():
+    assert (
+        a.apply(torch.pow, exponent=2).values == torch.pow(a.values, exponent=2)
+    ).all()
+    assert (
+        b.apply(torch.pow, exponent=2).values == torch.pow(b.values, exponent=2)
+    ).all()
+    assert (
+        c.apply(torch.pow, exponent=2).values == torch.pow(c.values, exponent=2)
+    ).all()
+
+
+@assert_no_out_arr
 def test_ops_and():  # TODO: check multiple dimension
     assert (
         (a_bool & b_bool & c_bool).to_dense()
@@ -101,6 +114,41 @@ def test_ops_mul():
     assert (
         (a * b * c).to_dense() == (a.to_dense() * b.to_dense() * c.to_dense())
     ).all()
+
+
+@assert_no_out_arr
+def test_ops_mul_scalar():
+    assert ((a * 3).to_dense() == (a.to_dense() * 3)).all()
+    assert ((b * 3).to_dense() == (b.to_dense() * 3)).all()
+    assert ((c * 3).to_dense() == (c.to_dense() * 3)).all()
+
+
+@assert_no_out_arr
+def test_ops_rmul_scalar():
+    assert ((3 * a).to_dense() == (3 * a.to_dense())).all()
+    assert ((3 * b).to_dense() == (3 * b.to_dense())).all()
+    assert ((3 * c).to_dense() == (3 * c.to_dense())).all()
+
+
+@assert_no_out_arr
+def test_ops_truediv_scalar():
+    assert ((a / 6).to_dense() == (a.to_dense() / 6)).all()
+    assert ((b / 6).to_dense() == (b.to_dense() / 6)).all()
+    assert ((c / 6).to_dense() == (c.to_dense() / 6)).all()
+
+
+@assert_no_out_arr
+def test_ops_floordiv_scalar():
+    assert ((a // 2).to_dense() == (a.to_dense() // 2)).all()
+    assert ((b // 2).to_dense() == (b.to_dense() // 2)).all()
+    assert ((c // 2).to_dense() == (c.to_dense() // 2)).all()
+
+
+@assert_no_out_arr
+def test_ops_mod_scalar():
+    assert ((a % 2).to_dense() == (a.to_dense() % 2)).all()
+    assert ((b % 2).to_dense() == (b.to_dense() % 2)).all()
+    assert ((c % 2).to_dense() == (c.to_dense() % 2)).all()
 
 
 @assert_no_out_arr

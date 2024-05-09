@@ -21,32 +21,60 @@ def _union_mask(indices: torch.LongTensor, _: int) -> torch.BoolTensor:
 
 
 class SparseOpsMixin(SparseScatterMixin):
+    def apply(
+        self, fn: Callable[[torch.Tensor], torch.Tensor], *kargs, **kwargs
+    ) -> Self:
+        return self.create_shared(fn(self._values, *kargs, **kwargs))
+
     def __and__(self, other: Self):
-        assert self.dtype == other.dtype == torch.bool
+        assert isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool
 
         return self._generic_ops([self, other], _intersection_mask)
 
-    def __mul__(self, other: Self):
-        assert self.dtype == other.dtype
+    def __mul__(self, other: Self | int | float):
+        if isinstance(other, (int, float)):
+            return self.create_shared(self._values * other)
+
+        assert isinstance(other, BaseSparse) and self.dtype == other.dtype
 
         return self._generic_ops(
             [self, other], _intersection_mask, lambda x: x[:, 0] * x[:, 1]
         )
 
+    def __rmul__(self, other: Self | int | float):
+        assert isinstance(other, (int, float))
+
+        return self.create_shared(self._values * other)
+
+    def __floordiv__(self, other: int | float):
+        assert isinstance(other, (int, float))
+
+        return self.create_shared(self._values // other)
+
+    def __truediv__(self, other: int | float):
+        assert isinstance(other, (int, float))
+
+        return self.create_shared(self._values / other)
+
+    def __mod__(self, other: int | float):
+        assert isinstance(other, (int, float))
+
+        return self.create_shared(self._values % other)
+
     def __or__(self, other: Self):
-        assert self.dtype == other.dtype == torch.bool
+        assert isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool
 
         return self._generic_ops([self, other], _union_mask)
 
     def __add__(self, other: Self):
-        assert self.dtype == other.dtype
+        assert isinstance(other, BaseSparse) and self.dtype == other.dtype
 
         return self._generic_ops(
             [self, other], _union_mask, lambda x: x[:, 0] + x[:, 1]
         )
 
     def __sub__(self, other: Self):
-        assert self.dtype == other.dtype
+        assert isinstance(other, BaseSparse) and self.dtype == other.dtype
 
         return self._generic_ops(
             [self, other], _union_mask, lambda x: x[:, 0] - x[:, 1]
