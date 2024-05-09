@@ -7,22 +7,58 @@ from sparse.ops import SparseOpsMixin, _intersection_mask, _union_mask
 
 from .mock_tensor import MockTensor
 from .assert_sys import assert_no_out_arr
+from .assert_equals_tensors import assert_equal_tensors, assert_equal_bool_tensors
 
 a_indices = torch.tensor(
     [[0, 3, 1, 1, 2, 2, 3], [0, 0, 1, 2, 1, 2, 3]], dtype=torch.long
 )
 a_values = torch.tensor([[1], [5], [1], [1], [1], [1], [1]], dtype=torch.int32)
+a_bool_values = torch.tensor(
+    [
+        [True, False, False],
+        [False, True, False],
+        [False, False, True],
+        [True, True, False],
+        [False, False, True],
+        [False, True, False],
+        [True, True, False],
+    ],
+    dtype=torch.bool,
+)
 b_indices = torch.tensor([[0, 1, 1, 2, 3], [0, 1, 2, 2, 3]], dtype=torch.long)
 b_values = torch.tensor([[1], [2], [1], [1], [1]], dtype=torch.int32)
+b_bool_values = torch.tensor(
+    [
+        [False, True, False],
+        [True, True, False],
+        [False, True, True],
+        [True, False, False],
+        [False, False, False],
+    ],
+    dtype=torch.bool,
+)
 c_indices = torch.tensor([[0, 1, 1, 2, 2], [0, 1, 2, 2, 3]], dtype=torch.long)
 c_values = torch.tensor([[-2], [-2], [1], [1], [1]], dtype=torch.int32)
+c_bool_values = torch.tensor(
+    [
+        [True, False, False],
+        [True, True, True],
+        [False, True, True],
+        [True, True, False],
+        [False, True, False],
+    ],
+    dtype=torch.bool,
+)
 
 a = SparseOpsMixin(a_indices, a_values, shape=(4, 4))
 a_bool = SparseOpsMixin(a_indices, shape=(4, 4))
+a_bool_mul = SparseOpsMixin(a_indices, a_bool_values, shape=(4, 4))
 b = SparseOpsMixin(b_indices, b_values, shape=(4, 4))
 b_bool = SparseOpsMixin(b_indices, shape=(4, 4))
+b_bool_mul = SparseOpsMixin(b_indices, b_bool_values, shape=(4, 4))
 c = SparseOpsMixin(c_indices, c_values, shape=(4, 4))
 c_bool = SparseOpsMixin(c_indices, shape=(4, 4))
+c_bool_mul = SparseOpsMixin(c_indices, c_bool_values, shape=(4, 4))
 
 
 @assert_no_out_arr
@@ -33,9 +69,9 @@ def test_ops_intersection_mask():
         ),
         2,
     )
-    assert (
-        mask == torch.tensor([True, False, False, False, True, False, False, False])
-    ).all()
+    assert_equal_bool_tensors(
+        mask, torch.tensor([True, False, False, False, True, False, False, False])
+    )
 
     mask = _intersection_mask(
         torch.tensor(
@@ -43,9 +79,9 @@ def test_ops_intersection_mask():
         ),
         2,
     )
-    assert (
-        mask == torch.tensor([True, False, False, False, True, False, True, False])
-    ).all()
+    assert_equal_bool_tensors(
+        mask, torch.tensor([True, False, False, False, True, False, True, False])
+    )
 
 
 @assert_no_out_arr
@@ -57,9 +93,9 @@ def test_ops_union_mask():
         2,
     )
 
-    assert (
-        mask == torch.tensor([True, False, True, True, True, False, True, True])
-    ).all()
+    assert_equal_bool_tensors(
+        mask, torch.tensor([True, False, True, True, True, False, True, True])
+    )
 
     mask = _union_mask(
         torch.tensor(
@@ -68,38 +104,68 @@ def test_ops_union_mask():
         2,
     )
 
-    assert (
-        mask == torch.tensor([True, False, True, True, True, False, True, False])
-    ).all()
+    assert_equal_bool_tensors(
+        mask, torch.tensor([True, False, True, True, True, False, True, False])
+    )
 
 
 @assert_no_out_arr
 def test_ops_apply():
-    assert (
-        a.apply(torch.pow, exponent=2).values == torch.pow(a.values, exponent=2)
-    ).all()
-    assert (
-        b.apply(torch.pow, exponent=2).values == torch.pow(b.values, exponent=2)
-    ).all()
-    assert (
-        c.apply(torch.pow, exponent=2).values == torch.pow(c.values, exponent=2)
-    ).all()
+    assert_equal_tensors(
+        a.apply(torch.pow, exponent=2).values, torch.pow(a.values, exponent=2)
+    )
+    assert_equal_tensors(
+        b.apply(torch.pow, exponent=2).values, torch.pow(b.values, exponent=2)
+    )
+    assert_equal_tensors(
+        c.apply(torch.pow, exponent=2).values, torch.pow(c.values, exponent=2)
+    )
 
 
 @assert_no_out_arr
-def test_ops_and():  # TODO: check multiple dimension
-    assert (
-        (a_bool & b_bool & c_bool).to_dense()
-        == (a_bool.to_dense() & b_bool.to_dense() & c_bool.to_dense())
-    ).all()
+def test_ops_and():
+    assert_equal_bool_tensors(
+        (a_bool & b_bool).to_dense(),
+        (a_bool.to_dense() & b_bool.to_dense()),
+    )
+
+    assert_equal_bool_tensors(
+        (a_bool & b_bool & c_bool).to_dense(),
+        (a_bool.to_dense() & b_bool.to_dense() & c_bool.to_dense()),
+    )
+
+    assert_equal_bool_tensors(
+        (a_bool_mul & b_bool_mul).to_dense(),
+        (a_bool_mul.to_dense() & b_bool_mul.to_dense()),
+    )
+
+    assert_equal_bool_tensors(
+        (a_bool_mul & b_bool_mul & c_bool_mul).to_dense(),
+        (a_bool_mul.to_dense() & b_bool_mul.to_dense() & c_bool_mul.to_dense()),
+    )
 
 
 @assert_no_out_arr
-def test_ops_or():  # TODO: check multiple dimension
-    assert (
-        (a_bool | b_bool | c_bool).to_dense()
-        == (a_bool.to_dense() | b_bool.to_dense() | c_bool.to_dense())
-    ).all()
+def test_ops_or():
+    assert_equal_bool_tensors(
+        (a_bool | b_bool).to_dense(),
+        (a_bool.to_dense() | b_bool.to_dense()),
+    )
+
+    assert_equal_bool_tensors(
+        (a_bool | b_bool | c_bool).to_dense(),
+        (a_bool.to_dense() | b_bool.to_dense() | c_bool.to_dense()),
+    )
+
+    assert_equal_bool_tensors(
+        (a_bool_mul | b_bool_mul).to_dense(),
+        (a_bool_mul.to_dense() | b_bool_mul.to_dense()),
+    )
+
+    assert_equal_bool_tensors(
+        (a_bool_mul | b_bool_mul | c_bool_mul).to_dense(),
+        (a_bool_mul.to_dense() | b_bool_mul.to_dense() | c_bool_mul.to_dense()),
+    )
 
 
 @assert_no_out_arr
@@ -515,4 +581,4 @@ def test_ops_generic_shared_idx_ops():
     )
 
     assert id(result.indices) == id(indices)
-    assert (result._values == torch.tensor([[6], [8], [10], [12]])).all()
+    assert (result._values == torch.tensor([6, 8, 10, 12])).all()

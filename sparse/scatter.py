@@ -4,6 +4,7 @@ import torch
 
 from .typing import Self
 from .shape import SparseShapeMixin
+from .base import BaseSparse
 from .mapping import Mapping
 
 
@@ -69,22 +70,22 @@ class SparseScatterMixin(SparseShapeMixin):
     ) -> torch.Tensor:
         if sorted_sparse.values is None:
             values = torch.zeros(
-                (batch[-1] + 1, 1),
+                (batch[-1] + 1,),
                 dtype=torch.long,
                 device=sorted_sparse.indices.device,
             ).scatter_add_(
                 dim=0,
-                index=batch[:, None],
-                src=torch.ones_like(sorted_sparse.indices[0][:, None]),
+                index=batch,
+                src=torch.ones_like(sorted_sparse.indices[0]),
             )
         else:
             values = torch.zeros(
-                (batch[-1] + 1, sorted_sparse.values.shape[1]),
+                (batch[-1] + 1, *sorted_sparse.values.shape[1:]),
                 dtype=sorted_sparse.values.dtype,
                 device=sorted_sparse.values.device,
             ).scatter_add_(
                 dim=0,
-                index=batch[:, None].expand_as(sorted_sparse.values),
+                index=BaseSparse._expand_as(batch, sorted_sparse.values),
                 src=sorted_sparse.values,
             )
 

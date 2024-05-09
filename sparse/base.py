@@ -14,8 +14,8 @@ class BaseSparse:
         shape: tuple = None,
         sort: bool = True,
     ):
-        self._indices = BaseSparse._process_indices(indices, values)
-        self._values = BaseSparse._process_values(values)
+        self._indices = BaseSparse._process_indices(indices)
+        self._values = BaseSparse._process_values(indices, values)
         self.__shape = BaseSparse._process_shape(indices, shape)
 
         if sort and (not self._is_sorted()):
@@ -40,21 +40,21 @@ class BaseSparse:
         return shape
 
     @staticmethod
-    def _process_indices(
-        indices: torch.LongTensor, values: torch.Tensor
-    ) -> torch.LongTensor:
+    def _process_indices(indices: torch.LongTensor) -> torch.LongTensor:
         assert indices.ndim == 2 and indices.dtype == torch.long
-        assert values is None or (
-            values.ndim in (1, 2) and indices.shape[1] == values.shape[0]
-        )
-        assert values is None or indices.device == values.device
 
         return indices
 
     @staticmethod
-    def _process_values(values: torch.Tensor) -> torch.Tensor:
-        if values is not None and values.ndim == 1:
-            values.unsqueeze_(1)
+    def _process_values(
+        indices: torch.LongTensor, values: torch.Tensor
+    ) -> torch.Tensor:
+        if values is None:
+            return None
+
+        assert values.ndim > 0
+        assert indices.shape[1] == values.shape[0]
+        assert indices.device == values.device
 
         return values
 
@@ -133,7 +133,7 @@ class BaseSparse:
   device=\"{self.device}\")"""
 
     def to_dense(self) -> torch.Tensor:
-        if self._values is None or self._values.shape[1] == 1:
+        if self._values is None:
             shape = self.shape
         else:
             shape = self.shape + self._values.shape[1:]
@@ -143,8 +143,6 @@ class BaseSparse:
 
         if self._values is None:
             dense_matrix[indices] = 1
-        elif self._values.shape[1] == 1:
-            dense_matrix[indices] = self._values.flatten()
         else:
             dense_matrix[indices] = self._values
 
@@ -228,6 +226,13 @@ class BaseSparse:
         if self._values is not None:
             self._values = self._values[perm]
 
+    @staticmethod
+    def _expand_as(src: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        missing_dims = [slice(None)] * len(src.shape) + [None] * (
+            len(target.shape) - len(src.shape)
+        )
+        return src[tuple(missing_dims)].expand_as(target)
+
     def _remove_sorted_duplicate_(self):
         # pylint: disable=not-callable
         mask = F.pad(
@@ -239,12 +244,19 @@ class BaseSparse:
         self._indices = self._indices[:, mask]
 
         if self._values is not None:
-            batch = self._get_ptr(mask)[:-1, None]
-            self._values = torch.zeros(
-                (batch[-1] + 1, self._values.shape[1]),
+            batch = self._get_ptr(mask)[:-1]
+
+            values = torch.zeros(
+                (batch[-1].item() + 1, *self._values.shape[1:]),
                 dtype=self._values.dtype,
                 device=self._values.device,
-            ).scatter_add_(dim=0, index=batch.expand_as(self._values), src=self._values)
+            )
+            values.scatter_add_(
+                dim=0,
+                index=BaseSparse._expand_as(batch, self._values),
+                src=self._values,
+            )
+            self._values = values
 
     def _is_sorted(self) -> bool:
         sorted_mask = self._indices.diff(dim=1) <= 0

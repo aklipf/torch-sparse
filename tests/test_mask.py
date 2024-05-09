@@ -6,6 +6,7 @@ from sparse.mask import SparseMaskMixin
 
 from .mock_tensor import MockTensor
 from .assert_sys import assert_no_out_arr
+from .assert_equals_tensors import assert_equal_tensors
 
 
 @assert_no_out_arr
@@ -21,7 +22,9 @@ def test_mask_inplace_without_value():
     result = sparse.mask_(mask)
 
     assert id(result) == id(sparse)
-    assert (sparse.indices == torch.tensor([[1, 2, 5, 5, 6], [2, 6, 3, 3, 0]])).all()
+    assert_equal_tensors(
+        sparse.indices, torch.tensor([[1, 2, 5, 5, 6], [2, 6, 3, 3, 0]])
+    )
     assert sparse.values is None
 
 
@@ -39,8 +42,10 @@ def test_mask_inplace_with_value():
     result = sparse.mask_(mask)
 
     assert id(result) == id(sparse)
-    assert (sparse.indices == torch.tensor([[1, 2, 5, 5, 6], [2, 6, 3, 3, 0]])).all()
-    assert (sparse.values == torch.tensor([[2], [3], [7], [8], [10]])).all()
+    assert_equal_tensors(
+        sparse.indices, torch.tensor([[1, 2, 5, 5, 6], [2, 6, 3, 3, 0]])
+    )
+    assert_equal_tensors(sparse.values, torch.tensor([2, 3, 7, 8, 10]))
 
 
 @assert_no_out_arr

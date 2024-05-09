@@ -8,6 +8,7 @@ from sparse.base import BaseSparse
 
 from .mock_tensor import MockTensor
 from .assert_sys import assert_no_out_arr
+from .assert_equals_tensors import assert_equal_tensors
 
 
 @assert_no_out_arr
@@ -22,7 +23,7 @@ def test_base_sort():
 
     tensor = BaseSparse(indices=indices[:, perm])
 
-    assert (tensor._indices == unique).all().item()
+    assert_equal_tensors(tensor._indices, unique)
 
     indices = torch.tensor(
         [
@@ -42,7 +43,7 @@ def test_base_sort():
 
     tensor = BaseSparse(indices=indices[:, perm])
 
-    assert (tensor._indices == unique).all().item()
+    assert_equal_tensors(tensor._indices, unique)
 
 
 @assert_no_out_arr
@@ -59,7 +60,7 @@ def test_base_no_sort():
 
     tensor = BaseSparse(indices=indices[:, perm])
 
-    assert (tensor._indices == indices[:, perm]).all().item()
+    assert_equal_tensors(tensor._indices, indices[:, perm])
 
 
 @assert_no_out_arr
@@ -70,14 +71,14 @@ def test_base_sort_with_values():
 
     tensor = BaseSparse(indices=indices[:, perm], values=values[perm])
 
-    assert (tensor._indices == indices).all().item()
-    assert (tensor._values.flatten() == values).all().item()
-    assert tensor._values.shape == (12, 1)
+    assert_equal_tensors(tensor._indices, indices)
+    assert_equal_tensors(tensor._values, values)
+    assert tensor._values.shape == (12,)
 
-    tensor = BaseSparse(indices=indices[:, perm], values=values[perm].unsqueeze(1))
+    tensor = BaseSparse(indices=indices[:, perm], values=values[perm, None])
 
-    assert (tensor._indices == indices).all().item()
-    assert (tensor._values.flatten() == values).all().item()
+    assert_equal_tensors(tensor._indices, indices)
+    assert_equal_tensors(tensor._values, values[:, None])
     assert tensor._values.shape == (12, 1)
 
     indices = torch.unique(torch.randperm(128))[:12].unsqueeze(0)
@@ -86,13 +87,13 @@ def test_base_sort_with_values():
 
     tensor = BaseSparse(indices=indices[:, perm], values=values[perm])
 
-    assert (tensor._indices == indices).all().item()
-    assert (tensor._values == values).all().item()
+    assert_equal_tensors(tensor._indices, indices)
+    assert_equal_tensors(tensor._values, values)
     assert tensor._values.shape == (12, 4)
 
 
 @assert_no_out_arr
-def test_base_assert():
+def test_base_assert():  # TODO check
     # assert indices ndim and dtype
     with pytest.raises(AssertionError):
         BaseSparse(torch.tensor([]))
@@ -103,20 +104,36 @@ def test_base_assert():
         BaseSparse(torch.tensor([[0]], dtype=torch.float32))
 
     # assert values ndim
-    BaseSparse(torch.tensor([[0]], dtype=torch.long), values=torch.tensor([0]))
-    BaseSparse(torch.tensor([[0]], dtype=torch.long), values=torch.tensor([[0]]))
+    assert_equal_tensors(
+        BaseSparse(
+            torch.tensor([[0]], dtype=torch.long), values=torch.tensor([0])
+        ).values,
+        torch.tensor([0]),
+    )
+    assert_equal_tensors(
+        BaseSparse(
+            torch.tensor([[0]], dtype=torch.long), values=torch.tensor([[0]])
+        ).values,
+        torch.tensor([[0]]),
+    )
 
     with pytest.raises(AssertionError):
         BaseSparse(torch.tensor([[0]], dtype=torch.long), values=torch.tensor(0))
 
-    with pytest.raises(AssertionError):
-        BaseSparse(torch.tensor([[0]], dtype=torch.long), values=torch.tensor([[[0]]]))
+    assert_equal_tensors(
+        BaseSparse(
+            torch.tensor([[0]], dtype=torch.long), values=torch.tensor([[[0]]])
+        ).values,
+        torch.tensor([[[0]]]),
+    )
 
     # assert compare indices shape and values shape
-    with pytest.raises(AssertionError):
+    assert_equal_tensors(
         BaseSparse(
             torch.tensor([[0]], dtype=torch.long), values=torch.tensor([[[0, 0]]])
-        )
+        ).values,
+        torch.tensor([[[0, 0]]]),
+    )
 
     # assert compare indices shape and shape parameter
     BaseSparse(torch.tensor([[0]], dtype=torch.long), shape=(2,))
@@ -510,6 +527,21 @@ def test_base_to_dense():
             ]
         )
     ).all()
+    assert (
+        BaseSparse(
+            indices,
+            torch.tensor(
+                [[[1, 5], [4, 8]], [[2, 6], [3, 7]], [[3, 7], [2, 6]], [[4, 8], [1, 5]]]
+            ),
+        ).to_dense()
+        == torch.tensor(
+            [
+                [[[1, 5], [4, 8]], [[0, 0], [0, 0]], [[0, 0], [0, 0]]],
+                [[[0, 0], [0, 0]], [[2, 6], [3, 7]], [[0, 0], [0, 0]]],
+                [[[3, 7], [2, 6]], [[0, 0], [0, 0]], [[4, 8], [1, 5]]],
+            ]
+        )
+    ).all()
 
 
 @assert_no_out_arr
@@ -525,7 +557,7 @@ def test_base_join():
     values = torch.randint(-32, 32, (indices.shape[1], 7))
 
     tensor1 = BaseSparse(indices, values[:, [0]], shape=(2, 8, 8))
-    tensor2 = BaseSparse(indices, values[:, 1], shape=(2, 8, 8))
+    tensor2 = BaseSparse(indices, values[:, [1]], shape=(2, 8, 8))
     tensor3 = BaseSparse(indices, values[:, 2:5], shape=(2, 8, 8))
     tensor4 = BaseSparse(indices, values[:, 5:], shape=(2, 8, 8))
     tensor_alt = BaseSparse(indices.clone(), values[:, [0]], shape=(2, 8, 8))
