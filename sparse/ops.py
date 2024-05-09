@@ -29,7 +29,22 @@ class SparseOpsMixin(SparseScatterMixin):
     def __and__(self, other: Self):
         assert isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool
 
-        return self._generic_ops([self, other], _intersection_mask)
+        if self._values is None:
+            return self._generic_ops([self, other], _intersection_mask)
+
+        return self._generic_ops(
+            [self, other], _intersection_mask, lambda x: x[:, 0] & x[:, 1]
+        )
+
+    def __or__(self, other: Self):
+        assert isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool
+
+        if self._values is None:
+            return self._generic_ops([self, other], _union_mask)
+
+        return self._generic_ops(
+            [self, other], _union_mask, lambda x: x[:, 0] | x[:, 1]
+        )
 
     def __mul__(self, other: Self | int | float):
         if isinstance(other, (int, float)):
@@ -60,11 +75,6 @@ class SparseOpsMixin(SparseScatterMixin):
         assert isinstance(other, (int, float))
 
         return self.create_shared(self._values % other)
-
-    def __or__(self, other: Self):
-        assert isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool
-
-        return self._generic_ops([self, other], _union_mask)
 
     def __add__(self, other: Self):
         assert isinstance(other, BaseSparse) and self.dtype == other.dtype
@@ -163,7 +173,7 @@ class SparseOpsMixin(SparseScatterMixin):
             values = ops(values).type(values.dtype)
 
         # filter nul values
-        mask = (values != 0).all(dim=1)
+        mask = (values != 0).view(values.shape[0], -1).any(dim=1)
         if (~mask).any():
             return indices[:, mask], values[mask]
         return indices, values
@@ -183,7 +193,17 @@ class SparseOpsMixin(SparseScatterMixin):
         idx = indices_idx[:, None] + (diff_idx[None, :] + batch[mask, None]) % n_tensors
 
         # select in values (pad because of overflow)
-        padded_values = F.pad(values, (0, 0, 0, n_tensors - 1), value=0)
+        padded_values = torch.cat(
+            (
+                values,
+                torch.zeros(
+                    (n_tensors - 1, *values.shape[1:]),
+                    dtype=values.dtype,
+                    device=values.device,
+                ),
+            ),
+            dim=0,
+        )
         selected_values = padded_values[idx]
 
         # check if the indices match
@@ -299,7 +319,8 @@ class SparseOpsMixin(SparseScatterMixin):
         if self._values is None:
             repeated_values = None
         else:
-            repeated_values = self._values.repeat(cart_prod.shape[1], 1)
+            repeat_args = [1] * (len(self._values.shape) - 1)
+            repeated_values = self._values.repeat(cart_prod.shape[1], *repeat_args)
 
         return self.__class__(
             repeated_indices, values=repeated_values, shape=tuple(new_shape)
