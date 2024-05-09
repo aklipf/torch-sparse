@@ -141,7 +141,36 @@ def test_scatter_scatter_mapping():
     assert_scatter_mapping_sum(origin, mapping, (2, 3))
     assert_scatter_mapping_mean(origin, mapping, (2, 3))
 
+    indices, values = randint_sparse((16, 16), min_v=1, size=(2, 3, 4))
+
+    tensor = SparseTensor(indices, values, (16, 16))
+    origin = tensor[:, :, None] * tensor[:, None, :]
+    mapping = Mapping.repeat_last_dims(tensor, 1, 2)
+
+    assert_scatter_mapping_sum(origin, mapping, (2,))
+    assert_scatter_mapping_mean(origin, mapping, (2,))
+
+    tensor = SparseTensor(indices, values, (16, 16))
+    mapping = Mapping.repeat_last_dims(tensor, 2, 2)
+    origin = tensor[:, :, None, None] * tensor[None, None, :, :]
+
+    assert_scatter_mapping_sum(origin, mapping, (2, 3))
+    assert_scatter_mapping_mean(origin, mapping, (2, 3))
+
     indices, values = randint_sparse((8, 8, 8), min_v=1)
+    tensor = SparseTensor(indices, values, (8, 8, 8))
+    mapping = Mapping.repeat_last_dims(tensor, 1, 2)
+    assert_scatter_mapping_sum(tensor[mapping[0]], mapping[0], (3,))
+    assert_scatter_mapping_sum(tensor[mapping[0]], mapping[1], (2,))
+    assert_scatter_mapping_sum(tensor[mapping[1]], mapping[0], (3,))
+    assert_scatter_mapping_sum(tensor[mapping[1]], mapping[1], (2,))
+
+    assert_scatter_mapping_mean(tensor[mapping[0]], mapping[0], (3,))
+    assert_scatter_mapping_mean(tensor[mapping[0]], mapping[1], (2,))
+    assert_scatter_mapping_mean(tensor[mapping[1]], mapping[0], (3,))
+    assert_scatter_mapping_mean(tensor[mapping[1]], mapping[1], (2,))
+
+    indices, values = randint_sparse((8, 8, 8), min_v=1, size=(3, 1, 2))
     tensor = SparseTensor(indices, values, (8, 8, 8))
     mapping = Mapping.repeat_last_dims(tensor, 1, 2)
     assert_scatter_mapping_sum(tensor[mapping[0]], mapping[0], (3,))

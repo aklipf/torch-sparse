@@ -9,6 +9,7 @@ from sparse.indexing import SparseIndexingMixin
 from .mock_tensor import MockTensor
 from .random_sparse import randint_sparse
 from .assert_sys import assert_no_out_arr
+from .assert_equals_tensors import assert_equal_tensors
 
 
 @mock.patch("sparse.base.BaseSparse._is_sorted", mock.MagicMock(return_value=True))
@@ -56,10 +57,10 @@ def test_indexing_get_item_mapping():
     tensor = SparseTensor(indices, values, shape=(4,))
     mapping = Mapping.repeat_last_dims(tensor, 1, 2)
 
-    assert (
-        -(tensor[mapping[0]] - tensor[mapping[1]]).to_dense()
-        == (tensor[mapping[1]] - tensor[mapping[0]]).to_dense()
-    ).all()
+    assert_equal_tensors(
+        -(tensor[mapping[0]] - tensor[mapping[1]]).to_dense(),
+        (tensor[mapping[1]] - tensor[mapping[0]]).to_dense(),
+    )
 
     indices, values = randint_sparse((16, 16))
     tensor = SparseTensor(indices, shape=(16, 16))
@@ -68,15 +69,15 @@ def test_indexing_get_item_mapping():
     indexed = tensor[mapping]
 
     assert result.shape == indexed.shape
-    assert (result.indices == indexed.indices).all()
+    assert_equal_tensors(result.indices, indexed.indices)
     assert indexed.values is None
 
     tensor = SparseTensor(indices, values, shape=(16, 16))
 
-    assert (
-        -(tensor[mapping[0]] - tensor[mapping[1]]).to_dense()
-        == (tensor[mapping[1]] - tensor[mapping[0]]).to_dense()
-    ).all()
+    assert_equal_tensors(
+        -(tensor[mapping[0]] - tensor[mapping[1]]).to_dense(),
+        (tensor[mapping[1]] - tensor[mapping[0]]).to_dense(),
+    )
 
     indices, values = randint_sparse((16, 16, 16))
     tensor = SparseTensor(indices, shape=(16, 16, 16))
@@ -85,18 +86,31 @@ def test_indexing_get_item_mapping():
     indexed = tensor[mapping]
 
     assert result.shape == indexed.shape
-    assert (result.indices == indexed.indices).all()
+    assert_equal_tensors(result.indices, indexed.indices)
     assert indexed.values is None
 
     tensor = SparseTensor(indices, values, shape=(16, 16, 16))
 
-    assert (
+    assert_equal_tensors(
         (tensor[mapping[0]] - tensor[mapping[1]])
         .to_dense()
         .swapdims(1, 3)
-        .swapdims(2, 4)
-        == (tensor[mapping[1]] - tensor[mapping[0]]).to_dense()
-    ).all()
+        .swapdims(2, 4),
+        (tensor[mapping[1]] - tensor[mapping[0]]).to_dense(),
+    )
+
+    indices, values = randint_sparse((16, 16, 16), size=(6, 8, 2))
+
+    tensor = SparseTensor(indices, values, shape=(16, 16, 16))
+    mapping = Mapping.repeat_last_dims(tensor, 2, 2)
+
+    assert_equal_tensors(
+        (tensor[mapping[0]] - tensor[mapping[1]])
+        .to_dense()
+        .swapdims(1, 3)
+        .swapdims(2, 4),
+        (tensor[mapping[1]] - tensor[mapping[0]]).to_dense(),
+    )
 
     indices, _ = randint_sparse((4, 4, 4))
     tensor = SparseTensor(indices, shape=(4, 4, 4))
@@ -106,7 +120,7 @@ def test_indexing_get_item_mapping():
     indexed = tensor[mapping]
 
     assert result.shape == indexed.shape
-    assert (result.indices == indexed.indices).all()
+    assert_equal_tensors(result.indices, indexed.indices)
     assert indexed.values is None
 
     indices, values = randint_sparse((4, 4, 4))
@@ -118,5 +132,17 @@ def test_indexing_get_item_mapping():
     indexed = tensor[mapping]
 
     assert result.shape == indexed.shape
-    assert (result.indices == indexed.indices).all()
+    assert_equal_tensors(result.indices, indexed.indices)
+    assert (result.values == indexed.values).all()
+
+    indices, values = randint_sparse((4, 4, 4), size=(2, 3, 5))
+    tensor = SparseTensor(indices, torch.ones_like(values), shape=(4, 4, 4))
+    result = (tensor[:, :, :, None, None] * tensor[:, None, None, :, :])[
+        :, :, :, :, :, None, None
+    ] * tensor[:, None, None, None, None, :, :]
+    mapping = Mapping.repeat_last_dims(tensor, 2, 3)
+    indexed = tensor[mapping]
+
+    assert result.shape == indexed.shape
+    assert_equal_tensors(result.indices, indexed.indices)
     assert (result.values == indexed.values).all()

@@ -319,7 +319,8 @@ class SparseOpsMixin(SparseScatterMixin):
         if self._values is None:
             repeated_values = None
         else:
-            repeated_values = self._values.repeat(cart_prod.shape[1])
+            repeat_args = [1] * (len(self._values.shape) - 1)
+            repeated_values = self._values.repeat(cart_prod.shape[1], *repeat_args)
 
         return self.__class__(
             repeated_indices, values=repeated_values, shape=tuple(new_shape)
