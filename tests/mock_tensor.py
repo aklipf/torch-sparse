@@ -1,6 +1,8 @@
 from __future__ import annotations
 import torch
 
+from sparse.typing import Self
+
 
 class MockTensor:
     """Good enouth for testing"""
@@ -40,6 +42,33 @@ class MockTensor:
 
     def amax(self, **_) -> torch.LongTensor:
         return torch.ones(self.shape[0], dtype=torch.long)
+
+    def view(self, *args) -> Self:
+        numel = 1
+        for s in self.shape:
+            numel *= s
+
+        numel_args = 1
+        inferred = None
+        for i, s in enumerate(args):
+            assert inferred is None or s != -1
+            if s == -1:
+                inferred = i
+            else:
+                numel_args *= s
+
+        if inferred is None:
+            assert numel == numel_args
+            return self.__class__(shape=args, dtype=self.dtype, device=self.device)
+
+        shape_inferred = numel // numel_args
+        assert numel == (shape_inferred * numel_args)
+
+        args[inferred] = shape_inferred
+        return self.__class__(shape=args, dtype=self.dtype, device=self.device)
+
+    def reshape(self, *args) -> Self:
+        return self.view(*args)
 
     def diff(self, **_) -> torch.LongTensor:
         return torch.tensor([[1]]).repeat(self.shape[0], 1)
