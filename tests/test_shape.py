@@ -56,7 +56,7 @@ def test_shape_unsqueeze_inplace():
 
 
 def __assert_squeeze_(
-    in_indices: torch.LongTensor, out_indices: torch.LongTensor, dim: int
+    in_indices: torch.LongTensor, out_indices: torch.LongTensor, dim: int | None
 ):
     sparse = SparseShapeMixin(in_indices)
     result = sparse.squeeze_(dim)
@@ -268,3 +268,48 @@ def test_shape_reshape_copy():
     sparse.clone.assert_called_once_with()
     cloned.reshape_.assert_called_once_with(reshaped_shape)
     assert id(result) == id(cloned)
+
+
+@assert_no_out_arr
+def test_shape_value_view():
+    sparse = SparseShapeMixin(
+        MockTensor((2, 8), dtype=torch.long),
+        MockTensor((8, 32), dtype=torch.long),
+        shape=(4, 4),
+    )
+
+    with mock.patch(
+        "tests.mock_tensor.MockTensor.view",
+        mock.MagicMock(return_value=MockTensor((8, 4, 2, 4), dtype=torch.long)),
+    ) as mock_view:
+        sparse.values_view(4, 2, 4)
+
+        mock_view.assert_called_once_with(8, 4, 2, 4)
+
+    with mock.patch(
+        "tests.mock_tensor.MockTensor.reshape",
+        mock.MagicMock(return_value=MockTensor((8, 4, 2, 4), dtype=torch.long)),
+    ) as mock_reshape:
+        sparse.values_reshape(4, 2, 4)
+
+        mock_reshape.assert_called_once_with(8, 4, 2, 4)
+
+    result = sparse.values_view(4, 2, 2, 2)
+    assert isinstance(result, SparseShapeMixin)
+    assert id(result._indices) == id(sparse._indices)
+    assert result.values.shape == (8, 4, 2, 2, 2)
+    assert result.shape == sparse.shape
+
+    result = sparse.values_reshape(4, 2, 2, 2)
+    assert isinstance(result, SparseShapeMixin)
+    assert id(result._indices) == id(sparse._indices)
+    assert result.values.shape == (8, 4, 2, 2, 2)
+    assert result.shape == sparse.shape
+
+    sparse = SparseShapeMixin(
+        MockTensor((2, 8), dtype=torch.long),
+        torch.randint(-32, 32, (8, 3, 5)),
+        shape=(4, 4),
+    )
+    assert sparse.values_view(5, 3).values.shape == (8, 5, 3)
+    assert sparse.values_reshape(5, 3).values.shape == (8, 5, 3)

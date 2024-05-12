@@ -51,6 +51,20 @@ class SparseShapeMixin(BaseSparse):
 
         return sparse
 
+    def values_view(self, *shape: int) -> Self:
+        return self.__class__(
+            self._indices,
+            values=self._values.view(self._values.shape[0], *shape),
+            shape=self.shape,
+        )
+
+    def values_reshape(self, *shape: int) -> Self:
+        return self.__class__(
+            self._indices,
+            values=self._values.reshape(self._values.shape[0], *shape),
+            shape=self.shape,
+        )
+
     def reshape_(self, shape: int | Iterable[int]) -> Self:
         indices, shape = self._indices_to_shape(shape)
 
