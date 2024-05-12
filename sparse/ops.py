@@ -27,73 +27,100 @@ class SparseOpsMixin(SparseScatterMixin):
         return self.create_shared(fn(self._values, *kargs, **kwargs))
 
     def __and__(self, other: Self):
-        assert isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool
+        if isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool:
 
-        if self._values is None:
-            return self._generic_ops([self, other], _intersection_mask)
+            if self._values is None:
+                return self._generic_ops([self, other], _intersection_mask)
 
-        return self._generic_ops(
-            [self, other], _intersection_mask, lambda x: x[:, 0] & x[:, 1]
-        )
+            return self._generic_ops(
+                [self, other], _intersection_mask, lambda x: x[:, 0] & x[:, 1]
+            )
+
+        raise ValueError()
 
     def __or__(self, other: Self):
-        assert isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool
+        if isinstance(other, BaseSparse) and self.dtype == other.dtype == torch.bool:
 
-        if self._values is None:
-            return self._generic_ops([self, other], _union_mask)
+            if self._values is None:
+                return self._generic_ops([self, other], _union_mask)
 
-        return self._generic_ops(
-            [self, other], _union_mask, lambda x: x[:, 0] | x[:, 1]
-        )
+            return self._generic_ops(
+                [self, other], _union_mask, lambda x: x[:, 0] | x[:, 1]
+            )
 
-    def __mul__(self, other: Self | int | float):
+        raise ValueError()
+
+    def __mul__(self, other: Self | int | float | torch.Tensor):
         if isinstance(other, (int, float)):
             return self.create_shared(self._values * other)
 
-        assert isinstance(other, BaseSparse) and self.dtype == other.dtype
+        if isinstance(other, torch.Tensor):
+            return self.create_shared(self._values * other[None])
 
-        return self._generic_ops(
-            [self, other], _intersection_mask, lambda x: x[:, 0] * x[:, 1]
-        )
+        if isinstance(other, BaseSparse) and self.dtype == other.dtype:
+            return self._generic_ops(
+                [self, other], _intersection_mask, lambda x: x[:, 0] * x[:, 1]
+            )
 
-    def __rmul__(self, other: Self | int | float):
-        assert isinstance(other, (int, float))
+        raise ValueError()
 
-        return self.create_shared(self._values * other)
+    def __rmul__(self, other: Self | int | float | torch.Tensor):
+        if isinstance(other, (int, float)):
+            return self.create_shared(self._values * other)
 
-    def __floordiv__(self, other: int | float):
-        assert isinstance(other, (int, float))
+        if isinstance(other, torch.Tensor):
+            return self.create_shared(self._values * other[None])
 
-        return self.create_shared(self._values // other)
+        raise ValueError()
 
-    def __truediv__(self, other: int | float):
-        assert isinstance(other, (int, float))
+    def __floordiv__(self, other: int | float | torch.Tensor):
+        if isinstance(other, (int, float)):
+            return self.create_shared(self._values // other)
 
-        return self.create_shared(self._values / other)
+        if isinstance(other, torch.Tensor):
+            return self.create_shared(self._values // other[None])
 
-    def __mod__(self, other: int | float):
-        assert isinstance(other, (int, float))
+        raise ValueError()
 
-        return self.create_shared(self._values % other)
+    def __truediv__(self, other: int | float | torch.Tensor):
+        if isinstance(other, (int, float)):
+            return self.create_shared(self._values / other)
+
+        if isinstance(other, torch.Tensor):
+            return self.create_shared(self._values / other[None])
+
+        raise ValueError()
+
+    def __mod__(self, other: int | float | torch.Tensor):
+        if isinstance(other, (int, float)):
+            return self.create_shared(self._values % other)
+
+        if isinstance(other, torch.Tensor):
+            return self.create_shared(self._values % other[None])
+
+        raise ValueError()
 
     def __add__(self, other: Self):
-        assert isinstance(other, BaseSparse) and self.dtype == other.dtype
+        if isinstance(other, BaseSparse) and self.dtype == other.dtype:
+            return self._generic_ops(
+                [self, other], _union_mask, lambda x: x[:, 0] + x[:, 1]
+            )
 
-        return self._generic_ops(
-            [self, other], _union_mask, lambda x: x[:, 0] + x[:, 1]
-        )
+        raise ValueError()
 
     def __sub__(self, other: Self):
-        assert isinstance(other, BaseSparse) and self.dtype == other.dtype
+        if isinstance(other, BaseSparse) and self.dtype == other.dtype:
+            return self._generic_ops(
+                [self, other], _union_mask, lambda x: x[:, 0] - x[:, 1]
+            )
 
-        return self._generic_ops(
-            [self, other], _union_mask, lambda x: x[:, 0] - x[:, 1]
-        )
+        raise ValueError()
 
     def __neg__(self):
-        assert self.dtype != torch.bool
+        if self.dtype != torch.bool:
+            return self.__class__(self._indices, values=-self._values, shape=self.shape)
 
-        return self.__class__(self._indices, values=-self._values, shape=self.shape)
+        raise ValueError()
 
     @classmethod
     def _generic_ops(

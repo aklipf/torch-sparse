@@ -247,6 +247,12 @@ def test_ops_mul_scalar():
     assert ((b_mul * 3).to_dense() == (b_mul.to_dense() * 3)).all()
     assert ((c_mul * 3).to_dense() == (c_mul.to_dense() * 3)).all()
 
+    matrix = torch.tensor([[1, -2, 3], [-4, 5, -6]])
+
+    assert ((a_mul * matrix).to_dense() == (a_mul.to_dense() * matrix)).all()
+    assert ((b_mul * matrix).to_dense() == (b_mul.to_dense() * matrix)).all()
+    assert ((c_mul * matrix).to_dense() == (c_mul.to_dense() * matrix)).all()
+
 
 @assert_no_out_arr
 def test_ops_rmul_scalar():
@@ -257,6 +263,12 @@ def test_ops_rmul_scalar():
     assert ((3 * a_mul).to_dense() == (3 * a_mul.to_dense())).all()
     assert ((3 * b_mul).to_dense() == (3 * b_mul.to_dense())).all()
     assert ((3 * c_mul).to_dense() == (3 * c_mul.to_dense())).all()
+
+    matrix = torch.tensor([[1, -2, 3], [-4, 5, -6]])
+
+    assert ((matrix * a_mul).to_dense() == (matrix * a_mul.to_dense())).all()
+    assert ((matrix * b_mul).to_dense() == (matrix * b_mul.to_dense())).all()
+    assert ((matrix * c_mul).to_dense() == (matrix * c_mul.to_dense())).all()
 
 
 @assert_no_out_arr
@@ -269,6 +281,12 @@ def test_ops_truediv_scalar():
     assert ((b_mul / 6).to_dense() == (b_mul.to_dense() / 6)).all()
     assert ((c_mul / 6).to_dense() == (c_mul.to_dense() / 6)).all()
 
+    matrix = torch.tensor([[1, -2, 3], [-4, 5, -6]])
+
+    assert ((a_mul / matrix).to_dense() == (a_mul.to_dense() / matrix)).all()
+    assert ((b_mul / matrix).to_dense() == (b_mul.to_dense() / matrix)).all()
+    assert ((c_mul / matrix).to_dense() == (c_mul.to_dense() / matrix)).all()
+
 
 @assert_no_out_arr
 def test_ops_floordiv_scalar():
@@ -280,6 +298,12 @@ def test_ops_floordiv_scalar():
     assert ((b_mul // 2).to_dense() == (b_mul.to_dense() // 2)).all()
     assert ((c_mul // 2).to_dense() == (c_mul.to_dense() // 2)).all()
 
+    matrix = torch.tensor([[1, -2, 3], [-4, 5, -6]])
+
+    assert ((a_mul // matrix).to_dense() == (a_mul.to_dense() // matrix)).all()
+    assert ((b_mul // matrix).to_dense() == (b_mul.to_dense() // matrix)).all()
+    assert ((c_mul // matrix).to_dense() == (c_mul.to_dense() // matrix)).all()
+
 
 @assert_no_out_arr
 def test_ops_mod_scalar():
@@ -290,6 +314,12 @@ def test_ops_mod_scalar():
     assert ((a_mul % 2).to_dense() == (a_mul.to_dense() % 2)).all()
     assert ((b_mul % 2).to_dense() == (b_mul.to_dense() % 2)).all()
     assert ((c_mul % 2).to_dense() == (c_mul.to_dense() % 2)).all()
+
+    matrix = torch.tensor([[1, -2, 3], [-4, 5, -6]])
+
+    assert ((a_mul % matrix).to_dense() == (a_mul.to_dense() % matrix)).all()
+    assert ((b_mul % matrix).to_dense() == (b_mul.to_dense() % matrix)).all()
+    assert ((c_mul % matrix).to_dense() == (c_mul.to_dense() % matrix)).all()
 
 
 @assert_no_out_arr
