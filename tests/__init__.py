@@ -9,3 +9,4 @@ from .test_shape import *
 from .test_scatter import *
 from .test_cat import *
 from .test_sparse import *
+from .nonzero import *

@@ -123,6 +123,14 @@ class SparseOpsMixin(SparseScatterMixin):
         raise ValueError()
 
     @classmethod
+    def cross(cls, x: Self, y: Self) -> Self:
+        return  # TODO implement
+
+    @classmethod
+    def dot(cls, x: Self, y: Self) -> Self:
+        return  # TODO implement
+
+    @classmethod
     def _generic_ops(
         cls,
         tensors: List[Self],
