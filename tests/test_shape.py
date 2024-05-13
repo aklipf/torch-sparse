@@ -5,8 +5,8 @@ import torch
 
 from sparse.shape import SparseShapeMixin
 
-from .mock_tensor import MockTensor
-from .assert_sys import assert_no_out_arr
+from tests.utils.mock_tensor import MockTensor
+from tests.utils.assert_sys import assert_no_out_arr
 
 
 def __assert_unsqueeze_(

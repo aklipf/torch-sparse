@@ -5,9 +5,9 @@ import torch
 
 from sparse.ops import SparseOpsMixin, _intersection_mask, _union_mask
 
-from .mock_tensor import MockTensor
-from .assert_sys import assert_no_out_arr
-from .assert_equals_tensors import assert_equal_tensors, assert_equal_bool_tensors
+from tests.utils.mock_tensor import MockTensor
+from tests.utils.assert_sys import assert_no_out_arr
+from tests.utils.assert_equals_tensors import assert_equal_tensors, assert_equal_bool_tensors
 
 a_indices = torch.tensor(
     [[0, 3, 1, 1, 2, 2, 3], [0, 0, 1, 2, 1, 2, 3]], dtype=torch.long

@@ -4,8 +4,8 @@ import pytest
 
 from unittest import mock
 
-from .assert_sys import assert_no_out_arr
-from .mock_tensor import MockTensor
+from tests.utils.assert_sys import assert_no_out_arr
+from tests.utils.mock_tensor import MockTensor
 
 
 @assert_no_out_arr

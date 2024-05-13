@@ -7,7 +7,7 @@ from sparse.scatter import SparseScatterMixin
 from sparse.cat import SparseCatMixin
 from sparse.ops import SparseOpsMixin
 
-from .assert_sys import assert_no_out_arr
+from tests.utils.assert_sys import assert_no_out_arr
 
 
 @assert_no_out_arr

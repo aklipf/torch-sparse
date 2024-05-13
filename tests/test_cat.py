@@ -3,9 +3,9 @@ import torch
 
 from sparse.cat import SparseCatMixin
 
-from .mock_tensor import MockTensor
-from .random_sparse import randint_sparse
-from .assert_sys import assert_no_out_arr
+from tests.utils.mock_tensor import MockTensor
+from tests.utils.random_sparse import randint_sparse
+from tests.utils.assert_sys import assert_no_out_arr
 
 
 @assert_no_out_arr
@@ -80,9 +80,9 @@ def test_cat_integration_3d():
 
     dense_result = torch.zeros((12, 9, 15), dtype=torch.int32)
     for i, s in enumerate(sparse_list):
-        dense_result[
-            i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3, i * 5 : (i + 1) * 5
-        ] = s.to_dense()
+        dense_result[i * 4 : (i + 1) * 4, i * 3 : (i + 1) * 3, i * 5 : (i + 1) * 5] = (
+            s.to_dense()
+        )
 
     assert (cat_tensor.to_dense() == dense_result).all()
 

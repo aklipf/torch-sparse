@@ -7,9 +7,9 @@ from sparse import SparseTensor, Mapping
 from sparse.typing import Self
 from sparse.scatter import SparseScatterMixin
 
-from .mock_tensor import MockTensor
-from .random_sparse import randint_sparse
-from .assert_sys import assert_no_out_arr
+from tests.utils.mock_tensor import MockTensor
+from tests.utils.random_sparse import randint_sparse
+from tests.utils.assert_sys import assert_no_out_arr
 
 
 def assert_scatter_sum(
