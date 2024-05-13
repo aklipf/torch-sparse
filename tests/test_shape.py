@@ -279,7 +279,7 @@ def test_shape_value_view():
     )
 
     with mock.patch(
-        "tests.mock_tensor.MockTensor.view",
+        "tests.utils.MockTensor.view",
         mock.MagicMock(return_value=MockTensor((8, 4, 2, 4), dtype=torch.long)),
     ) as mock_view:
         sparse.values_view(4, 2, 4)
@@ -287,7 +287,7 @@ def test_shape_value_view():
         mock_view.assert_called_once_with(8, 4, 2, 4)
 
     with mock.patch(
-        "tests.mock_tensor.MockTensor.reshape",
+        "tests.utils.MockTensor.reshape",
         mock.MagicMock(return_value=MockTensor((8, 4, 2, 4), dtype=torch.long)),
     ) as mock_reshape:
         sparse.values_reshape(4, 2, 4)

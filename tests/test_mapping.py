@@ -136,15 +136,15 @@ def test_mapping_selector():
         mapping[2]
         mock_selector.assert_called_once_with(mapping, 2)
 
-    with mock.patch("tests.mock_tensor.MockTensor.__getitem__") as mock_getitem:
+    with mock.patch("tests.utils.MockTensor.__getitem__") as mock_getitem:
         Mapping.Selector(mapping, 0).batch
         mock_getitem.assert_called_once_with(0)
 
-    with mock.patch("tests.mock_tensor.MockTensor.__getitem__") as mock_getitem:
+    with mock.patch("tests.utils.MockTensor.__getitem__") as mock_getitem:
         Mapping.Selector(mapping, 1).batch
         mock_getitem.assert_called_once_with(1)
 
-    with mock.patch("tests.mock_tensor.MockTensor.__getitem__") as mock_getitem:
+    with mock.patch("tests.utils.MockTensor.__getitem__") as mock_getitem:
         Mapping.Selector(mapping, -1).batch
         mock_getitem.assert_called_once_with(-1)
 
