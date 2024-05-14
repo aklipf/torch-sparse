@@ -248,45 +248,6 @@ class SparseOpsMixin(SparseScatterMixin):
         return indices, values
 
     @classmethod
-    def _select_values(
-        cls,
-        indices: torch.LongTensor,
-        values: torch.Tensor,
-        batch: torch.LongTensor,
-        mask: torch.BoolTensor,
-        n_tensors: int,
-    ) -> torch.Tensor:
-        # compute targeted index
-        indices_idx = mask.nonzero().flatten()
-        diff_idx = torch.arange(n_tensors, dtype=torch.long, device=mask.device)
-        idx = indices_idx[:, None] + (diff_idx[None, :] + batch[mask, None]) % n_tensors
-
-        # select in values (pad because of overflow)
-        padded_values = torch.cat(
-            (
-                values,
-                torch.zeros(
-                    (n_tensors - 1, *values.shape[1:]),
-                    dtype=values.dtype,
-                    device=values.device,
-                ),
-            ),
-            dim=0,
-        )
-        selected_values = padded_values[idx]
-
-        # check if the indices match
-        padded_indices = F.pad(indices, (0, n_tensors - 1), value=-1)
-        index_mask = (
-            padded_indices[:, idx.t()] == padded_indices[:, None, indices_idx]
-        ).all(dim=0)
-
-        # set to 0 when it doesn't match
-        selected_values[~index_mask.t()] = 0
-
-        return selected_values
-
-    @classmethod
     def _get_shape(cls, tensors: List[Self]) -> tuple:
         assert len(tensors) > 0
 

@@ -746,6 +746,12 @@ def test_ops_dot():
 
     assert_equal_tensors(z.values, torch.tensor([21, 104], dtype=torch.int))
 
+    z = SparseOpsMixin.dot(x, x)
+
+    assert_equal_tensors(
+        z.values, torch.tensor([6, 116, 106, 139, 69], dtype=torch.int)
+    )
+
     z = SparseOpsMixin.dot(
         x.create_shared(x.values.float()), y.create_shared(y.values.float())
     )
