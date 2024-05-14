@@ -6,10 +6,10 @@ import torch
 from sparse import SparseTensor, Mapping
 from sparse.indexing import SparseIndexingMixin
 
-from .mock_tensor import MockTensor
-from .random_sparse import randint_sparse
-from .assert_sys import assert_no_out_arr
-from .assert_equals_tensors import assert_equal_tensors
+from tests.utils.mock_tensor import MockTensor
+from tests.utils.random_sparse import randint_sparse
+from tests.utils.assert_sys import assert_no_out_arr
+from tests.utils.assert_equals_tensors import assert_equal_tensors
 
 
 @mock.patch("sparse.base.BaseSparse._is_sorted", mock.MagicMock(return_value=True))

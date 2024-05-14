@@ -6,8 +6,8 @@ import torch
 from sparse.typing import Self
 from sparse.type import SparseTypeMixin
 
-from .mock_tensor import MockTensor
-from .assert_sys import assert_no_out_arr
+from tests.utils.mock_tensor import MockTensor
+from tests.utils.assert_sys import assert_no_out_arr
 
 
 @assert_no_out_arr
