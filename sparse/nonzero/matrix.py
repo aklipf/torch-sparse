@@ -11,3 +11,6 @@ def det(x: SparseTensor) -> SparseTensor:
 
 def trace(x: SparseTensor) -> SparseTensor:
     return x.create_shared(x._values.trace())
+
+
+# TODO: norm, normalize

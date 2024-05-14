@@ -33,7 +33,7 @@ class SparseOpsMixin(SparseScatterMixin):
                 return self._generic_ops([self, other], _intersection_mask)
 
             return self._generic_ops(
-                [self, other], _intersection_mask, lambda x: x[:, 0] & x[:, 1]
+                [self, other], _intersection_mask, torch.logical_and
             )
 
         raise ValueError()
@@ -44,9 +44,7 @@ class SparseOpsMixin(SparseScatterMixin):
             if self._values is None:
                 return self._generic_ops([self, other], _union_mask)
 
-            return self._generic_ops(
-                [self, other], _union_mask, lambda x: x[:, 0] | x[:, 1]
-            )
+            return self._generic_ops([self, other], _union_mask, torch.logical_or)
 
         raise ValueError()
 
@@ -58,9 +56,7 @@ class SparseOpsMixin(SparseScatterMixin):
             return self.create_shared(self._values * other[None])
 
         if isinstance(other, BaseSparse) and self.dtype == other.dtype:
-            return self._generic_ops(
-                [self, other], _intersection_mask, lambda x: x[:, 0] * x[:, 1]
-            )
+            return self._generic_ops([self, other], _intersection_mask, torch.mul)
 
         raise ValueError()
 
@@ -102,17 +98,13 @@ class SparseOpsMixin(SparseScatterMixin):
 
     def __add__(self, other: Self):
         if isinstance(other, BaseSparse) and self.dtype == other.dtype:
-            return self._generic_ops(
-                [self, other], _union_mask, lambda x: x[:, 0] + x[:, 1]
-            )
+            return self._generic_ops([self, other], _union_mask, torch.add)
 
         raise ValueError()
 
     def __sub__(self, other: Self):
         if isinstance(other, BaseSparse) and self.dtype == other.dtype:
-            return self._generic_ops(
-                [self, other], _union_mask, lambda x: x[:, 0] - x[:, 1]
-            )
+            return self._generic_ops([self, other], _union_mask, torch.sub)
 
         raise ValueError()
 
@@ -124,11 +116,19 @@ class SparseOpsMixin(SparseScatterMixin):
 
     @classmethod
     def cross(cls, x: Self, y: Self) -> Self:
-        return  # TODO implement
+        assert x._values.ndim == y._values.ndim == 2
+
+        return cls._generic_ops(
+            [x, y], _intersection_mask, lambda x, y: torch.cross(x, y, 1)
+        )
 
     @classmethod
     def dot(cls, x: Self, y: Self) -> Self:
-        return  # TODO implement
+        assert x._values.ndim == y._values.ndim == 2
+
+        return cls._generic_ops(
+            [x, y], _intersection_mask, lambda x, y: torch.sum(x * y, dim=1).to(x.dtype)
+        )
 
     @classmethod
     def _generic_ops(
@@ -148,35 +148,69 @@ class SparseOpsMixin(SparseScatterMixin):
         dims = tuple(range(len(shape)))
 
         # concatenating indices and values
-        cat_indices, cat_values = cls._cat_values(tensors)
+        cat_indices = cls._cat_indices(tensors)
 
         # sorting
         perm = cls._argsort_indices(cat_indices, dims=dims)
-        cat_indices = cat_indices[:, perm]
+        sorted_cat_indices = cat_indices[:, perm]
 
         # keep indices when at least len(tensors) values are present
         # (calculate intersection over the indices)
-        mask = indices_mask(cat_indices, len(tensors))
+        mask = indices_mask(sorted_cat_indices, len(tensors))
 
         # filter indices based on intersection
-        indices = cat_indices[:, mask]
+        indices = sorted_cat_indices[:, mask]
 
         # filter values and performe the operation
-        if cat_values is not None:
-            cat_values = cat_values[perm]
-
-            batch = cls._cat_batch(tensors)[perm]
-
-            values = cls._select_values(
-                cat_indices, cat_values, batch, mask, len(tensors)
+        if any(map(lambda x: x.values is not None, tensors)):
+            values_idx, values_mask = cls._get_values_idx_mask(
+                tensors, cat_indices, indices, mask, perm
             )
 
-            indices, values = cls._apply_ops_values(indices, values, ops)
+            list_values = []
+            for i, tensor in enumerate(tensors):
+                if tensor.values is None:
+                    list_values.append(None)
+                else:
+                    values = tensor.values[values_idx[i]]
+                    values[values_mask[i]] = 0
+                    list_values.append(values)
+
+            indices, values = cls._apply_ops_values(indices, list_values, ops)
         else:
             values = None
 
         # create a new sparse tensor containing the result
         return cls(indices, values=values, shape=shape)
+
+    @classmethod
+    def _get_values_idx_mask(
+        cls,
+        tensors: Iterable[Self],
+        cat_indices: torch.LongTensor,
+        indices: torch.LongTensor,
+        mask: torch.BoolTensor,
+        perm: torch.LongTensor,
+    ) -> Tuple[torch.LongTensor, torch.BoolTensor]:
+        idx_mask = mask.nonzero().flatten()
+        filtered_perm = perm[mask]
+        padded_perm = F.pad(perm, (0, len(tensors) - 1), value=-1)
+
+        idx_values = torch.arange(len(tensors))
+        n_values = torch.tensor([tensor.indices.shape[1] for tensor in tensors])
+        ptr = F.pad(n_values.cumsum(0), (1, 0))
+        mask_offset = (ptr[None, :-1] <= filtered_perm[:, None]) & (
+            filtered_perm[:, None] < ptr[None, 1:]
+        )
+        offset = (idx_values[None, :] * mask_offset).sum(dim=1)
+
+        origin_idx = (idx_mask - offset)[None, :] + idx_values[:, None]
+
+        values_idx = (padded_perm[origin_idx] - ptr[:-1, None]) % n_values[:, None]
+        values_mask = (cat_indices[:, padded_perm[origin_idx]] != indices[:, None]).any(
+            dim=0
+        )
+        return values_idx, values_mask
 
     @classmethod
     def _is_shared_indices(cls, tensors: List[Self]) -> bool:
@@ -190,7 +224,7 @@ class SparseOpsMixin(SparseScatterMixin):
     ) -> Self:
         shape = tensors[0].shape
         indices = tensors[0].indices
-        values = torch.stack([tensor.values for tensor in tensors], dim=1)
+        values = [tensor.values for tensor in tensors]
         indices, values = cls._apply_ops_values(indices, values, ops)
 
         return cls(indices, values=values, shape=shape, sort=False)
@@ -199,13 +233,13 @@ class SparseOpsMixin(SparseScatterMixin):
     def _apply_ops_values(
         cls,
         indices: torch.LongTensor,
-        values: torch.Tensor,
+        values: Iterable[torch.Tensor | None],
         ops: Callable[[torch.Tensor], torch.Tensor] = None,
     ) -> Tuple[torch.LongTensor, torch.Tensor]:
         if ops is None:  # concatenation if no ops
-            values = values.reshape(values.shape[0], -1)
+            values = torch.stack(values, dim=1)
         else:
-            values = ops(values).type(values.dtype)
+            values = ops(*values)
 
         # filter nul values
         mask = (values != 0).view(values.shape[0], -1).any(dim=1)
@@ -263,26 +297,8 @@ class SparseOpsMixin(SparseScatterMixin):
         return shape
 
     @classmethod
-    def _cat_values(cls, tensors: List[Self]) -> Tuple[torch.LongTensor, torch.Tensor]:
-        indices = torch.cat([t.indices for t in tensors], dim=1)
-
-        if tensors[0].values is None:
-            values = None
-        else:
-            values = torch.cat([t.values for t in tensors], dim=0)
-
-        return indices, values
-
-    @classmethod
-    def _cat_batch(cls, tensors: List[Self]) -> torch.LongTensor:
-        device = tensors[0].device
-
-        batch = torch.arange(len(tensors), dtype=torch.long, device=device)
-        size = torch.tensor(
-            [t.indices.shape[1] for t in tensors], dtype=torch.long, device=device
-        )
-
-        return batch.repeat_interleave(size)
+    def _cat_indices(cls, tensors: List[Self]) -> torch.LongTensor:
+        return torch.cat([t.indices for t in tensors], dim=1)
 
     @classmethod
     def _build_broadcast(

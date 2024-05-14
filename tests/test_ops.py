@@ -7,7 +7,10 @@ from sparse.ops import SparseOpsMixin, _intersection_mask, _union_mask
 
 from tests.utils.mock_tensor import MockTensor
 from tests.utils.assert_sys import assert_no_out_arr
-from tests.utils.assert_equals_tensors import assert_equal_tensors, assert_equal_bool_tensors
+from tests.utils.assert_equals_tensors import (
+    assert_equal_tensors,
+    assert_equal_bool_tensors,
+)
 
 a_indices = torch.tensor(
     [[0, 3, 1, 1, 2, 2, 3], [0, 0, 1, 2, 1, 2, 3]], dtype=torch.long
@@ -37,12 +40,11 @@ a_bool_values = torch.tensor(
     ],
     dtype=torch.bool,
 )
-b_indices = torch.tensor([[0, 1, 1, 2, 3], [0, 1, 2, 2, 3]], dtype=torch.long)
-b_values = torch.tensor([[1], [2], [1], [1], [1]], dtype=torch.int32)
+b_indices = torch.tensor([[0, 1, 2, 3], [0, 2, 2, 3]], dtype=torch.long)
+b_values = torch.tensor([[1], [2], [1], [1]], dtype=torch.int32)
 b_values_mul = torch.tensor(
     [
         [[8, 1, 2], [4, 7, 8]],
-        [[1, 11, 8], [5, 4, 2]],
         [[0, 5, 2], [3, 4, 5]],
         [[1, 3, 3], [2, 3, 8]],
         [[8, 2, 6], [8, 2, 0]],
@@ -52,7 +54,6 @@ b_values_mul = torch.tensor(
 b_bool_values = torch.tensor(
     [
         [False, True, False],
-        [True, True, False],
         [False, True, True],
         [True, False, False],
         [False, False, False],
@@ -94,6 +95,31 @@ c = SparseOpsMixin(c_indices, c_values, shape=(4, 4))
 c_mul = SparseOpsMixin(c_indices, c_values_mul, shape=(4, 4))
 c_bool = SparseOpsMixin(c_indices, shape=(4, 4))
 c_bool_mul = SparseOpsMixin(c_indices, c_bool_values, shape=(4, 4))
+
+x_indices = torch.tensor([[0, 0, 1, 1, 2], [0, 2, 1, 2, 3]], dtype=torch.long)
+x_values = torch.tensor(
+    [
+        [1, 1, 2],
+        [8, 4, 6],
+        [4, 3, 9],
+        [7, 9, 3],
+        [1, 8, 2],
+    ],
+    dtype=torch.int32,
+)
+y_indices = torch.tensor([[0, 1, 1, 3], [0, 0, 2, 3]], dtype=torch.long)
+y_values = torch.tensor(
+    [
+        [1, 4, 8],
+        [2, 4, 6],
+        [5, 5, 8],
+        [7, 8, 2],
+    ],
+    dtype=torch.int32,
+)
+
+x = SparseOpsMixin(x_indices, x_values, shape=(4, 4))
+y = SparseOpsMixin(y_indices, y_values, shape=(4, 4))
 
 
 @assert_no_out_arr
@@ -324,6 +350,7 @@ def test_ops_mod_scalar():
 
 @assert_no_out_arr
 def test_ops_sub():
+    assert ((b - a).to_dense() == (b.to_dense() - a.to_dense())).all()
     assert (
         (a - b - c).to_dense() == (a.to_dense() - b.to_dense() - c.to_dense())
     ).all()
@@ -690,9 +717,37 @@ def test_ops_generic_shared_idx_ops():
     assert id(result.indices) == id(indices)
     assert (result._values == torch.tensor([[1, 5], [2, 6], [3, 7], [4, 8]])).all()
 
-    result = SparseOpsMixin._generic_shared_idx_ops(
-        [tensor1, tensor2], lambda x: x[:, 0] + x[:, 1]
-    )
+    result = SparseOpsMixin._generic_shared_idx_ops([tensor1, tensor2], torch.add)
 
     assert id(result.indices) == id(indices)
     assert (result._values == torch.tensor([6, 8, 10, 12])).all()
+
+
+@assert_no_out_arr
+def test_ops_cross():
+    z = SparseOpsMixin.cross(x, y)
+
+    assert_equal_tensors(
+        z.values, torch.tensor([[0, -6, 3], [57, -41, -10]], dtype=torch.int)
+    )
+
+    z = SparseOpsMixin.cross(
+        x.create_shared(x.values.float()), y.create_shared(y.values.float())
+    )
+
+    assert_equal_tensors(
+        z.values, torch.tensor([[0, -6, 3], [57, -41, -10]], dtype=torch.float)
+    )
+
+
+@assert_no_out_arr
+def test_ops_dot():
+    z = SparseOpsMixin.dot(x, y)
+
+    assert_equal_tensors(z.values, torch.tensor([21, 104], dtype=torch.int))
+
+    z = SparseOpsMixin.dot(
+        x.create_shared(x.values.float()), y.create_shared(y.values.float())
+    )
+
+    assert_equal_tensors(z.values, torch.tensor([21, 104], dtype=torch.float))
