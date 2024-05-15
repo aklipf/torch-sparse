@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Tuple, Any
+from typing import Tuple, Any, Literal
 
 import torch
 import torch.nn.functional as F
@@ -19,6 +19,16 @@ class Mapping:
                 return getattr(self.mapping, name)
 
             raise AttributeError(self, name)
+
+        def broadcast(self, values: torch.Tensor) -> torch.Tensor:
+            return self.mapping.broadcast(values, self.idx)
+
+        def reduce(
+            self,
+            values: torch.Tensor,
+            reduce: Literal["sum", "prod", "mean", "amax", "amin"] = "sum",
+        ) -> torch.Tensor:
+            return self.mapping.reduce(values, reduce, self.idx)
 
         @property
         def batch(self) -> torch.LongTensor:
@@ -43,6 +53,30 @@ class Mapping:
 
     def __getitem__(self, idx: int) -> Mapping.Selector:
         return Mapping.Selector(self, idx)
+
+    def broadcast(self, values: torch.Tensor, idx: int = 0) -> torch.Tensor:
+        return values[self._batch[idx]]
+
+    def reduce(
+        self,
+        values: torch.Tensor,
+        reduce: Literal["sum", "prod", "mean", "amax", "amin"] = "sum",
+        idx: int = 0,
+    ) -> torch.Tensor:
+        result = torch.zeros(
+            (self._source._indices.shape[1], *values.shape[1:]),
+            dtype=values.dtype,
+            device=values.device,
+        )
+
+        fill_dims = [1] * (values.ndim - 1)
+        broadcased_batch = (
+            self._batch[idx].view(-1, *fill_dims).broadcast_to(values.shape)
+        )
+
+        result.scatter_reduce_(dim=0, index=broadcased_batch, src=values, reduce=reduce)
+
+        return result
 
     @classmethod
     def repeat_last_dims(

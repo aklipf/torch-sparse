@@ -6,6 +6,7 @@ from unittest import mock
 
 from tests.utils.assert_sys import assert_no_out_arr
 from tests.utils.mock_tensor import MockTensor
+from tests.utils.assert_equals_tensors import assert_equal_tensors
 
 
 @assert_no_out_arr
@@ -153,3 +154,133 @@ def test_mapping_selector():
 
     with pytest.raises(AssertionError):
         Mapping.Selector(mapping, 3).batch
+
+
+@assert_no_out_arr
+def test_mapping_boardcast():
+    source_idx = torch.tensor([[0, 1, 2, 3, 4, 5, 6, 7]])
+    target_idx = torch.tensor([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]])
+    batch = torch.tensor(
+        [
+            [0, 1, 6, 7, 2, 1, 2, 4, 5, 6, 2, 4, 6, 7, 6, 3],
+            [3, 6, 4, 0, 2, 5, 4, 7, 6, 0, 1, 5, 6, 3, 0, 1],
+        ]
+    )
+
+    values = torch.tensor(
+        [[1, 2], [3, 4], [5, 6], [7, 8], [1, 2], [3, 4], [5, 6], [7, 8]]
+    )
+
+    broadcasted0 = torch.tensor(
+        [
+            [1, 2],
+            [3, 4],
+            [5, 6],
+            [7, 8],
+            [5, 6],
+            [3, 4],
+            [5, 6],
+            [1, 2],
+            [3, 4],
+            [5, 6],
+            [5, 6],
+            [1, 2],
+            [5, 6],
+            [7, 8],
+            [5, 6],
+            [7, 8],
+        ]
+    )
+    broadcasted1 = torch.tensor(
+        [
+            [7, 8],
+            [5, 6],
+            [1, 2],
+            [1, 2],
+            [5, 6],
+            [3, 4],
+            [1, 2],
+            [7, 8],
+            [5, 6],
+            [1, 2],
+            [3, 4],
+            [3, 4],
+            [5, 6],
+            [7, 8],
+            [1, 2],
+            [3, 4],
+        ]
+    )
+
+    source = SparseTensor(source_idx, shape=(8,))
+    target = SparseTensor(target_idx, shape=(16,))
+    mapping = Mapping(source, target, batch)
+
+    assert_equal_tensors(mapping.broadcast(values), broadcasted0)
+
+    assert_equal_tensors(mapping.broadcast(values, idx=0), broadcasted0)
+    assert_equal_tensors(mapping.broadcast(values, idx=1), broadcasted1)
+
+    assert_equal_tensors(mapping[0].broadcast(values), broadcasted0)
+    assert_equal_tensors(mapping[1].broadcast(values), broadcasted1)
+
+
+@assert_no_out_arr
+def test_mapping_reduce():
+    source_idx = torch.tensor([[0, 1, 2, 3, 4, 5, 6, 7]])
+    target_idx = torch.tensor([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]])
+    batch = torch.tensor(
+        [
+            [0, 1, 6, 7, 2, 1, 2, 4, 5, 6, 2, 4, 6, 7, 6, 3],
+            [3, 6, 4, 0, 2, 5, 4, 7, 6, 0, 1, 5, 6, 3, 0, 1],
+        ]
+    )
+
+    source = SparseTensor(source_idx, shape=(8,))
+    target = SparseTensor(target_idx, shape=(16,))
+    mapping = Mapping(source, target, batch)
+
+    values = torch.tensor(
+        [
+            [1, 2],
+            [3, 4],
+            [5, 6],
+            [7, 8],
+            [1, 2],
+            [5, 6],
+            [7, 8],
+            [1, 2],
+            [1, 2],
+            [5, 6],
+            [3, 4],
+            [5, 6],
+            [1, 2],
+            [3, 4],
+            [3, 4],
+            [5, 6],
+        ]
+    )
+
+    reduced_sum0 = torch.tensor(
+        [[1, 2], [8, 10], [11, 14], [5, 6], [6, 8], [1, 2], [14, 18], [10, 12]]
+    )
+    reduced_amax0 = torch.tensor(
+        [[1, 2], [5, 6], [7, 8], [5, 6], [5, 6], [1, 2], [5, 6], [7, 8]]
+    )
+    reduced_sum1 = torch.tensor(
+        [[15, 18], [8, 10], [1, 2], [4, 6], [12, 14], [10, 12], [5, 8], [1, 2]]
+    )
+    reduced_amax1 = torch.tensor(
+        [[7, 8], [5, 6], [1, 2], [3, 4], [7, 8], [5, 6], [3, 4], [1, 2]]
+    )
+
+    assert_equal_tensors(mapping.reduce(values), reduced_sum0)
+    assert_equal_tensors(mapping.reduce(values, idx=0), reduced_sum0)
+    assert_equal_tensors(mapping.reduce(values, idx=1), reduced_sum1)
+    assert_equal_tensors(mapping[0].reduce(values), reduced_sum0)
+    assert_equal_tensors(mapping[1].reduce(values), reduced_sum1)
+    assert_equal_tensors(mapping.reduce(values, reduce="amax"), reduced_amax0)
+    assert_equal_tensors(mapping.reduce(values, reduce="amax", idx=0), reduced_amax0)
+    assert_equal_tensors(mapping.reduce(values, reduce="amax", idx=1), reduced_amax1)
+    assert_equal_tensors(mapping[0].reduce(values, reduce="amax"), reduced_amax0)
+    assert_equal_tensors(mapping[1].reduce(values, reduce="amax"), reduced_amax1)
